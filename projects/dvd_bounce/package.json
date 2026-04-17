@@ -1,0 +1,10 @@
+{
+    "name": "dvd-bounce",
+    "displayName": "DVD Bounce",
+    "version": "1.0.0",
+    "author": "qkmaxware",
+    "description": "If you know, you know",
+    "devDependencies": {
+        "pngjs": "^7.0.0"
+    }
+}

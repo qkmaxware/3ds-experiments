@@ -1,0 +1,1 @@
+podman compose -f compose.yml run --build --rm all

@@ -1,0 +1,8 @@
+obj/
+node_modules/
+
+*.html
+*.tmp
+*.3dsx
+*.elf
+*.smdh

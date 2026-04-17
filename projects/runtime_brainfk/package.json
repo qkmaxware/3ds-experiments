@@ -1,0 +1,7 @@
+{
+    "name": "runtime-bf",
+    "displayName": "BrainF**k Interpreter",
+    "version": "1.0.0",
+    "author": "qkmaxware",
+    "description": "Run BrainF**k scripts on your 3ds"
+}

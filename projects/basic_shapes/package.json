@@ -1,0 +1,7 @@
+{
+    "name": "shapes",
+    "displayName": "Shapes",
+    "version": "1.0.0",
+    "author": "qkmaxware",
+    "description": "Demonstrating drawing of basic shapes to display buffer"
+}

@@ -1,0 +1,49 @@
+services:
+    # This is a pseudo-service which simily tells compose to build all the depends_on projects
+    all:
+        image: alpine
+        command: ["true"]
+        depends_on:
+            - hello-world
+            - basic-shapes
+            - dvd-bounce
+            - explorer
+            - runtime-bf
+        
+    # The following are all services that build specific project executables
+    hello-world: 
+        build: 
+            context: ./environment
+        volumes:
+        - ./bin:/project/bin
+        - ./lib:/project/lib
+        - ./projects/hello_world:/project/src 
+    basic-shapes: 
+        build: 
+            context: ./environment
+        volumes:
+        - ./bin:/project/bin
+        - ./lib:/project/lib
+        - ./projects/basic_shapes:/project/src  
+    dvd-bounce: 
+        build: 
+            context: ./environment
+        volumes:
+        - ./bin:/project/bin
+        - ./lib:/project/lib
+        - ./projects/dvd_bounce:/project/src  
+    explorer: 
+        build: 
+            context: ./environment
+        volumes:
+        - ./bin:/project/bin
+        - ./lib:/project/lib
+        - ./projects/explorer:/project/src  
+    
+    runtime-bf: 
+        build: 
+            context: ./environment
+        volumes:
+        - ./bin:/project/bin
+        - ./lib:/project/lib
+        - ./projects/runtime_brainfk:/project/src  
