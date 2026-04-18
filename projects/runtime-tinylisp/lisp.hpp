@@ -20,6 +20,25 @@ enum class LispValueType: uint8_t {
     Error,
 };
 
+inline std::string LispValueTypeString(LispValueType type) {
+    switch (type) {
+        case LispValueType::Nil:
+            return "nil";
+        case LispValueType::Symbol:
+            return "symbol";
+        case LispValueType::Number:
+            return "number";
+        case LispValueType::Cons:
+            return "cons";
+        case LispValueType::Closure:
+            return "closure";
+        case LispValueType::Error:
+            return "error";
+        default:
+            return "<unknown-type>";
+    }
+}
+
 enum class LispErrorCode: uint8_t {
     None,
     Generic,
@@ -788,6 +807,7 @@ private:
         return Alloc(LispValue::Symbol(sym));
     }
 
+    // <list> ::= '(' <expr>* ')'
     LispRef parse_list(ICharStream &stream) {
         if (stream.Eof())
             return parse_error(ParseErrorCode::EndOfFile);
@@ -850,6 +870,7 @@ private:
         return parse_error(ParseErrorCode::InvalidToken);
     }
 
+    // <expr-list> ::= <expr>*
     std::vector<LispRef> parse_expr_list(ICharStream &stream) {
         std::vector<LispRef> exprs;
 
@@ -937,6 +958,7 @@ public:
     }
 
     void Collect(std::vector<LispRef> &roots) {
+        return; // For now, disable the GC
         Mark(roots);
         Sweep();
     }
