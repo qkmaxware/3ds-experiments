@@ -1,6 +1,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <algorithm>
 
 // TODO closures (Prototype + Environment)
 // TODO default functions (car, cdr, cons, +, -, *, /, print, def)
@@ -192,6 +193,31 @@ public:
         return v;
     }
 
+    bool IsAtom() const {
+        switch (this->Type) {
+            case LispValueType::Nil:
+            case LispValueType::Number:
+            case LispValueType::Symbol:
+            case LispValueType::Error:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    bool IsList() const {
+        switch (this->Type) {
+            case LispValueType::Nil:
+            case LispValueType::Cons:
+            case LispValueType::Closure:
+                return true;
+            
+            default:
+                return false;
+        }
+    }
+
     bool IsNil() const {
         return this->Type == LispValueType::Nil;
     }
@@ -294,50 +320,124 @@ enum class BuiltinFunction {
     Add,
     Sub,
     Mul,
-    Div
+    Div,
+    IsAtom,
+    IsList,
+    Quote,
 };
+
+struct SymbolTableEntryProperties {
+    LispRef BoundReference;
+    bool ReBindable;
+    bool Protected;
+
+    SymbolTableEntryProperties(): BoundReference(0), ReBindable(true), Protected(false) {}
+}
+
+struct SymbolTableEntry {
+    std::string Text;
+    SymbolTableEntryProperties Properties;
+
+    SymbolTableEntry(): Text(), Properties() {}
+}
 
 class SymbolTable {
 private:
     std::string empty;
-    int protectedCount;
-    std::vector<std::string> Symbols;
+    std::vector<SymbolTableEntry> Symbols;
+
+    using iterator = std::vector<SymbolTableEntry>::iterator;
+    using const_iterator = std::vector<SymbolTableEntry>::const_iterator;
 
 public:
-    SymbolTable() : empty(""), protectedCount(0), Symbols() {
+    SymbolTable() : empty(""), Symbols() {
         // Special symbols (see BuiltinFunction enum) or TryExecBuiltin for implementation
-        Intern("define");
-        Intern("lambda");   
-        Intern("car");
-        Intern("cdr");
-        Intern("cons");
-        Intern("+");
-        Intern("-");
-        Intern("*");
-        Intern("/");
+        Intern("define",   SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("lambda",   SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});   
+        Intern("car",      SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("cdr",      SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("cons",     SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("+",        SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("-",        SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("*",        SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("/",        SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("atom?",    SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("list?",    SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("quote",    SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
         protectedCount = Symbols.size(); // Protect built-in symbols from being removed
     }
 
+    iterator begin() { return data.begin(); }
+    iterator end() { return data.end(); }
+    const_iterator begin() const { return data.begin(); }
+    const_iterator end() const { return data.end(); }
+
+    /// @brief intern a symbol text with default properties
+    /// @param name symbol name
+    /// @return symbol reference
     SymbolRef Intern(const std::string &name) {
         // Check if symbol already exists (linear search)
         for (std::size_t i = 0; i < Symbols.size(); i++) {
-            if (Symbols[i] == name) {
+            if (Symbols[i].Text == name) {
                 return static_cast<SymbolRef>(i);
             }
         }
         
         // Create new symbol
         SymbolRef ref = static_cast<SymbolRef>(Symbols.size());
-        Symbols.push_back(name);
+        SymbolTableEntry entry;
+        entry.Text = name;
+        Symbols.push_back(entry);
         return ref;
     }
 
+    /// @brief intern a symbol text and if its a new symbol assign the given properties
+    /// @param name symbol name
+    /// @param properties symbol properties
+    /// @return symbol reference
+    SymbolRef Intern(const std::string &name, const SymbolTableEntryProperties &properties) {
+        // Check if symbol already exists (linear search)
+        for (std::size_t i = 0; i < Symbols.size(); i++) {
+            if (Symbols[i].Text == name) {
+                return static_cast<SymbolRef>(i);
+            }
+        }
+        
+        // Create new symbol (and make its properties the desired properties)
+        SymbolRef ref = static_cast<SymbolRef>(Symbols.size());
+        SymbolTableEntry entry;
+        entry.Text = name;
+        entry.Properties = properties;
+        Symbols.push_back(entry);
+        return ref;
+    }
+
+    /// @brief bind a given symbol reference to a value on the runtime's heap
+    bool Bind(SymbolRef symbol, LispRef value) {
+        auto index = static_cast<std::vector<SymbolTableEntry>::size_t>(symbol);
+        if (index >= Symbols.size())
+            return false; // Do nothing if out of range
+
+        SymbolTableEntry &entry = Symbols[index];
+        if (!entry.Properties.ReBindable)
+            return false; // Do nothing if not bindable
+
+        entry.Properties.BoundReference = value;
+        return true;
+    }
+
+    /// @brief clear all symbols from the symbol table except protected symbols (usually builtins)
     void Clear() {
         // Clear all except protected symbols
-        Symbols.erase(Symbols.begin() + protectedCount, Symbols.end());
+        std::erase_if(Symbols, [](const SymbolTableEntry& sym) {
+            return !sym.Properties.Protected;
+        });
         Symbols.shrink_to_fit();
     }
     
+    /// @brief get the name associated with the given symbol reference
+    /// @param ref reference to the symbol
+    /// @return string
     const std::string& GetName(SymbolRef ref) const {
         if (ref >= Symbols.size()) return empty;
         return Symbols[ref];
@@ -363,6 +463,8 @@ private:
     const LispRef MemoryAccessOutOfBounds_Ref = 3;
     const LispRef MemoryUninitialized_Ref = 4;
     const LispRef MemoryOutOfSpace_Ref = 5;
+    const LispRef True_Ref = 6;
+    const LispRef False_Ref = 7;
 
     const LispRef GlobalEnvironment_Ref = Nil_Ref;
 
@@ -461,6 +563,8 @@ public:
         Alloc(LispValue::Error(LispErrorCode::MemoryAccessOutOfBounds), MemoryFlags::Protected);
         Alloc(LispValue::Error(LispErrorCode::MemoryUninitialized), MemoryFlags::Protected);
         Alloc(LispValue::Error(LispErrorCode::MemoryOutOfSpace), MemoryFlags::Protected);
+        Alloc(LispValue::Number(1), MemoryFlags::Protected); // True
+        Alloc(LispValue::Number(0), MemoryFlags::Protected); // False
     }
 
     // Reset the runtime IE clear all memory
@@ -627,7 +731,34 @@ public:
             return true;
         }
         else if (name == "define") {
-            // TODO 
+            // Format of args is Cons(Symbol, ?)
+            const LispValue &argsCell = ValueOf(argsRef);
+            if (!argsCell.IsCons()) {
+                // TODO return a better error here
+                result = MemoryUninitialized_Ref;  // Malformed define 
+                return true;
+            }
+
+            const LispValue &symbolCell = ValueOf(argsCell.As.Cons.Car);
+            if (!symbolCell.IsSymbol()) {
+                // TODO return a better error here
+                result = MemoryUninitialized_Ref;  // Malformed define 
+                return true;
+            }
+
+            // Don't evaluate the rest, just bind it
+            bool didBind = Symbols.Bind(symbolCell.As.Symbol, argsCell.As.Cons.Cdr);
+            if (didBind) {
+                result = argsCell.As.Cons.Cdr;
+            } else {
+                result = Nil_Ref; // If we didn't bind, return Nil
+            }
+            return true;
+        }
+        else if (name == "quote") {
+            // Return the args as is, no processing
+            result = argsRef;
+            return true;
         }
 
         // Simple built-ins
@@ -739,6 +870,36 @@ public:
             result = newConsRef;
             return true;
         }
+        else if (name == "atom?") {
+            if (evaluatedArgs.size() != 1) {
+                result = ArgumentCountMismatch_Ref;
+                return true;
+            }
+
+            LispValue &val = ValueOf(evaluatedArgs[0]);
+            if (val.IsAtom()) {
+                result = True_Ref;
+            } else {
+                result = False_Ref;
+            }
+            return true;
+        }
+        else if (name == "list?") {
+            if (evaluatedArgs.size() != 1) {
+                result = ArgumentCountMismatch_Ref;
+                return true;
+            }
+
+            LispValue &val = ValueOf(evaluatedArgs[0]);
+            if (val.IsList()) {
+                result = True_Ref;
+            } else {
+                result = False_Ref;
+            }
+            return true;
+        }
+
+        // Was not a builtin
         return false;
     }
 
@@ -761,7 +922,7 @@ private:
         return c == '+' || c == '-';
     }
     inline bool is_operator(char c) {
-        return c == '+' || c == '-' || c == '*' || c == '/';
+        return c == '+' || c == '-' || c == '*' || c == '/' || c == '?';
     }
     inline bool is_sym_start(char c) {
         return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || is_operator(c);
@@ -932,6 +1093,13 @@ private:
         // Start at the roots and mark all reachable memory cells
         std::vector<LispRef> stack(roots);
 
+        // Also include global symbols as part of the roots
+        for (const SymbolTableEntry& entry : Symbols) {
+            if (entry.Properties.ReBindable) {
+                stack.push_back(entry.Properties.BoundReference);
+            }
+        }
+
         while (!stack.empty()) {
             LispRef current = stack.back();
             stack.pop_back();
@@ -981,24 +1149,16 @@ public:
         LispRef lastResult = Nil_Ref;
         for (LispRef expr: exprs) {
             lastResult = Eval(expr);
-            Collect(exprs); // Collect after each evaluation to prevent memory leaks (since Eval can allocate new memory)
+            MaybeCollect(exprs); // See if we need to collect after each evaluation to prevent memory leaks (since Eval can allocate new memory)
         }
         return lastResult;
     }
 
-    LispRef EvalAllThen(std::vector<LispRef> &exprs, void (*then)(LispRuntime&, LispRef)) {
-        LispRef lastResult = Nil_Ref;
-        for (LispRef expr: exprs) {
-            LispRef result = Eval(expr);
-            then(*this, result);
-            lastResult = result;
-            Collect(exprs); // Collect after each evaluation to prevent memory leaks (since Eval can allocate new memory)
-        }
-        return lastResult;
+    void MaybeCollect(std::vector<LispRef> &roots) {
+        // Collect(roots);
     }
 
     void Collect(std::vector<LispRef> &roots) {
-        return; // For now, disable the GC
         Mark(roots);
         Sweep();
     }
