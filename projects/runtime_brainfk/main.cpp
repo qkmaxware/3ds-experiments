@@ -21,9 +21,76 @@ enum class StepType {
 };
 
 const std::vector<uint8_t>::size_type TAPE_LENGTH = 30000;
-const int OUTPUT_LINES = (240 / 16);
-const int OUTPUT_CHARS_PER_LINE = (400 / 9);
-const int OUTPUT_LENGTH = (OUTPUT_LINES) * (OUTPUT_CHARS_PER_LINE);
+
+class ConsoleDisplayBuffer {
+private:
+    const unsigned int OUTPUT_LINES = (240 / Typeface::LineHeight);
+    const unsigned int OUTPUT_CHARS_PER_LINE = (400 / (Typeface::Width + Typeface::Kerning));
+    const unsigned int OUTPUT_LENGTH = (OUTPUT_LINES) * (OUTPUT_CHARS_PER_LINE);
+
+    std::vector<char> buf;
+    std::vector<char>::size_type x;
+    std::vector<char>::size_type y;
+
+public:
+    ConsoleDisplayBuffer(): buf(OUTPUT_LENGTH, 0),x(0),y(0) { }
+
+    void Flush(Displays &displays) {
+        displays.Upper.Clear();
+        Imgui im(displays.Upper);
+        for (unsigned int i = 0, line = 0; line < OUTPUT_LINES; line++) {
+            im.BeginRow();
+            for (unsigned int col = 0; col < OUTPUT_CHARS_PER_LINE; col++, i++) {
+                uint8_t ch = buf[i];
+                im.Glyph(Typeface::DefaultFont[ch], Imgui::DefaultLabelStyle);
+            }
+            im.EndRow();
+        }
+    }
+
+    void Clear() {
+        std::fill(this->buf.begin(), this->buf.end(), 0);
+    }
+
+    void Write(const std::string &str) {
+        for (const char& c : str) {
+            Write(c);
+        }
+    }
+
+    void Writeln(const std::string &str) {
+        Write(str);
+        Write('\n');
+    }
+
+    void Write(const char c) {
+        // Respect newlines (fill with \0)
+        auto start_index = y * OUTPUT_CHARS_PER_LINE + x;
+        if (c == '\n') {
+            auto chars_left_in_line = OUTPUT_CHARS_PER_LINE - x;
+            for (unsigned int i = 0; i < chars_left_in_line; i++)
+                buf[start_index + i] = '\0';
+            start_index += chars_left_in_line;
+            x = 0;
+            y += 1;
+            if (y >= OUTPUT_LINES) {
+                y = 0;
+            }
+            return;
+        }
+
+        // Wrapping buffer
+        buf[start_index] = c;
+        x += 1;
+        if (x >= OUTPUT_CHARS_PER_LINE) {
+            x = 0;
+            y += 1;
+            if (y >= OUTPUT_LINES) {
+                y = 0;
+            }
+        }
+    }
+};
 
 class Interpreter {
 private:
@@ -32,8 +99,7 @@ private:
     std::vector<uint8_t>::size_type text_ptr;
     std::vector<uint8_t> data;
     std::vector<uint8_t>::size_type data_ptr;
-    std::vector<uint8_t> output_buffer;
-    std::vector<uint8_t>::size_type output_ptr;
+    ConsoleDisplayBuffer console;
 
     StepType Step(Input &input) {
         // Don't step if done
@@ -79,11 +145,7 @@ private:
                     if (this->data_ptr >= 0 && this->data_ptr < TAPE_LENGTH) {
                         toPrint = this->data[this->data_ptr];
                     }
-                    this->output_buffer[this->output_ptr] = toPrint;
-                    this->output_ptr += 1;
-                    if (this->output_ptr >= OUTPUT_LENGTH) {
-                        this->output_ptr = 0;
-                    }
+                    console.Write(static_cast<char>(toPrint));
                     type = StepType::Redraw;
                 }
                 break;
@@ -145,7 +207,7 @@ private:
     }
 
 public:
-    Interpreter(): state(InterpreterState::Okay), script(), text_ptr(0), data(TAPE_LENGTH), data_ptr(0), output_buffer(OUTPUT_LENGTH) {
+    Interpreter(): state(InterpreterState::Okay), script(), text_ptr(0), data(TAPE_LENGTH), data_ptr(0), console() {
 
     }
 
@@ -163,16 +225,12 @@ public:
         this->text_ptr = 0;
         std::fill(this->data.begin(), this->data.end(), 0);
         this->data_ptr = 0;
-        std::fill(this->output_buffer.begin(), this->output_buffer.end(), 0);
-        this->output_ptr = 0;
+        console.Clear();
     }
 
-    uint8_t GetBufferedChar(int index) {
-        if (index >= 0 && index < OUTPUT_LENGTH) {
-            return this->output_buffer[index];
-        }
-        return 0;
-    } 
+    ConsoleDisplayBuffer& GetConsole() {
+        return this->console;
+    }
 
     bool IsDone() {
         return this->state != InterpreterState::Okay || (this->text_ptr >= this->script.size());
@@ -187,26 +245,49 @@ public:
         }
         return type;
     }
+
+    StepType RunToEnd(Input &input) {
+        StepType type = StepType::NoStep;
+        while (!IsDone()) {
+            StepType type2 = Step(input, 1);
+            if (type2 > type)
+                type = type2;
+        }
+        return type;
+    }
+};
+
+enum class AppState {
+    Browse,
+    RunFile,
+    RunInteractive,
 };
 
 class Runtime: public CitrusApp {
 private:
+    AppState state;
     std::string script_path;
     Imgui::FileBrowser fb;
     Interpreter interpreter;
 
 public:
-    Runtime(): script_path(), fb(), interpreter() { }
+    Runtime(): state(AppState::Browse), script_path(), fb(), interpreter() { }
 
     void setup() override {
         fb.SetDir("/");
+        Console::Println("Press SELECT to enter interactive mode");
         Console::Println("Press START to quit");
     }
 
     void loop(Displays &displays, Input &input) override { 
-        if (this->script_path.length() == 0) {
+        if (this->state == AppState::Browse) {
             // Clear the upper screen
             displays.Upper.Clear();
+
+            if (input.JustPressed(KeyCodes::Select)) {
+                state = AppState::RunInteractive;
+                return;
+            }
 
             // Browse
             if (fb.SelectFile(displays.Upper, input)) {
@@ -220,6 +301,7 @@ public:
                     
                     // Load the script and init the interpreter
                     interpreter.Initialize(RomFs::ReadAllBytes(selected_file));
+                    this->state = AppState::RunFile;
 
                     Console::Clear();
                     Console::Println("Program Running");
@@ -229,12 +311,13 @@ public:
                     Console::Println("Press START to quit");
                 }
             }
-        } else {
+        } else if (state == AppState::RunFile) {
             // Check if interpreter is done
             if (interpreter.IsDone()) {
                 if (input.Pressed(KeyCodes::A) && input.Pressed(KeyCodes::B)) {
                     // Clear selected file and return to the file browser
                     this->script_path = "";
+                    this->state = AppState:: Browse;
                 }
                 return;
             }
@@ -243,16 +326,7 @@ public:
             interpreter.Step(input, 12); // Do x steps per iteration
 
             // Draw any generated outputs
-            displays.Upper.Clear();
-            Imgui im(displays.Upper);
-            for (int i = 0, line = 0; line < OUTPUT_LINES; line++) {
-                im.BeginRow();
-                for (int col = 0; col < OUTPUT_CHARS_PER_LINE; col++, i++) {
-                    uint8_t ch = interpreter.GetBufferedChar(i);
-                    im.Glyph(Typeface::DefaultFont[ch], Imgui::DefaultLabelStyle);
-                }
-                im.EndRow();
-            }
+            interpreter.GetConsole().Flush(displays);
 
             // Final output step
             if (interpreter.IsDone()) {
@@ -282,6 +356,59 @@ public:
                 
                 Console::Println("Press A+B to return to file selection");
                 Console::Println("Press START to quit");
+            }
+        } 
+        else if (state == AppState::RunInteractive) {
+            Console::Clear();
+            Console::Println("Press X or Y to type");
+            Console::Println("Press A+B to return to file selection");
+
+            if (interpreter.GetState() != InterpreterState::Okay) {
+                Console::Println("");
+                Console::Print("An ERROR has occurred [");
+                switch (interpreter.GetState()) {
+                    case InterpreterState::ErrStackOverflow:
+                        Console::Print("Stack Overflow"); break;
+                    case InterpreterState::ErrStackUnderflow:
+                        Console::Print("Stack Underflow"); break;
+                    case InterpreterState::ErrUnclosedLoop:
+                        Console::Print("Malformed Loops"); break;
+                    default:
+                        Console::Print("Unknown Error");
+                        break;
+                }
+                Console::Println("]");
+            }
+
+            // Draw any generated outputs
+            interpreter.GetConsole().Flush(displays);
+
+            if (input.Pressed(KeyCodes::A) && input.Pressed(KeyCodes::B)) {
+                state = AppState::Browse;
+                Console::Clear();
+                Console::Println("Press SELECT to enter interactive mode");
+                Console::Println("Press START to quit");
+                return;
+            }
+
+            if (input.JustPressed(KeyCodes::X) || input.JustPressed(KeyCodes::Y)) {
+                // TODO
+                std::string line = input.Prompt("BrainF**k Script");
+                if (line.length() == 0) {
+                    return;
+                }
+
+                std::vector<uint8_t> bytes(line.begin(), line.end());
+                interpreter.Initialize(bytes);
+
+                // Write Script Line
+                ConsoleDisplayBuffer &console = interpreter.GetConsole();
+                console.Write('>'); console.Write(' ');
+                console.Writeln(line); 
+                console.Write('\n');
+
+                // Interpret
+                interpreter.RunToEnd(input);
             }
         }
     }

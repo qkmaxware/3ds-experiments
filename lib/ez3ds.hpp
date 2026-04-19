@@ -430,4 +430,23 @@ public:
 
 };
 
+// TODO create a "state machine" of other CitrusApps
+// Call setup on enter state, cleanup on exit state, and that state's loop method each iteration
+class MultiStateCitrusApp: public CitrusApp {
+public:
+    using StateId = size_t;
+
+private:
+    bool hasEnteredCurrentState;
+    StateId currentStateId;
+
+public:
+
+    MultiStateCitrusApp();
+
+    void loop(Displays &displays, Input &input) override;
+    virtual CitrusApp& GetState(StateId id) = 0;
+    virtual StateId NextState(StateId currentId, CitrusApp &currentState) = 0;
+};
+
 #endif

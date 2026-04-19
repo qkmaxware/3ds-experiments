@@ -20,7 +20,7 @@ enum class LispValueType: uint8_t {
     Error,
 };
 
-inline std::string LispValueTypeString(LispValueType type) {
+inline std::string Enum2String(LispValueType type) {
     switch (type) {
         case LispValueType::Nil:
             return "nil";
@@ -55,6 +55,31 @@ enum class LispErrorCode: uint8_t {
     ArithmeticDivideByZero,
 };
 
+inline std::string Enum2String(LispErrorCode type) {
+    switch (type) {
+        case LispErrorCode::None:
+            return "no error";
+        case LispErrorCode::Generic:
+            return "generic error";
+        case LispErrorCode::ParsingError:
+            return "parsing error";
+        case LispErrorCode::ArgumentCountMismatch:
+            return "argument count mismatch";
+        case LispErrorCode::MemoryOutOfSpace:
+            return "out of memory";
+        case LispErrorCode::MemoryUninitialized:
+            return "using uninitilized memory";
+        case LispErrorCode::MemoryAccessOutOfBounds:
+            return "index out of bounds";
+        case LispErrorCode::ArithmeticNonNumber:
+            return "not a number";
+        case LispErrorCode::ArithmeticDivideByZero:
+            return "divide by zero";
+        default:
+            return "<unknown-type>";
+    }
+}
+
 enum class ParseErrorCode: uint8_t
 {
     None,
@@ -63,6 +88,23 @@ enum class ParseErrorCode: uint8_t
     InvalidToken,
     EndOfFile,
 };
+
+inline std::string Enum2String(ParseErrorCode type) {
+    switch (type) {
+        case ParseErrorCode::None:
+            return "no error";
+        case ParseErrorCode::Generic:
+            return "generic error";
+        case ParseErrorCode::MissingClosingParen:
+            return "missing closing parenthesis";
+        case ParseErrorCode::InvalidToken:
+            return "invalid token";
+        case ParseErrorCode::EndOfFile:
+            return "unexpected end of file";
+        default:
+            return "<unknown-type>";
+    }
+}
 
 
 typedef int LispNumber;
@@ -262,7 +304,7 @@ private:
     std::vector<std::string> Symbols;
 
 public:
-    SymbolTable() : empty(""), Symbols(), protectedCount(0) {
+    SymbolTable() : empty(""), protectedCount(0), Symbols() {
         // Special symbols (see BuiltinFunction enum) or TryExecBuiltin for implementation
         Intern("define");
         Intern("lambda");   
@@ -385,7 +427,7 @@ private:
         return envRef;
     }
 
-    LispRef LookupSymbol(SymbolRef symbolRef, LispRef environmentRef) {
+    LispRef LookupSymbol(LispRef cellRef, SymbolRef symbolRef, LispRef environmentRef) {
         LispRef currentEnv = environmentRef;
         
         while (currentEnv != Nil_Ref) {
@@ -407,7 +449,7 @@ private:
             currentEnv = envCell.As.Cons.Cdr;
         }
         
-        return Nil_Ref;  // Not found
+        return cellRef;  // Not found in environment, just return the cell with the symbol
     }
 
 public:
@@ -471,10 +513,8 @@ public:
             case LispValueType::Closure:
                 return root;
             
-            case LispValueType::Symbol: {
-                LispRef result = LookupSymbol(box.Value.As.Symbol, currentEnv);
-                return result;
-            }
+            case LispValueType::Symbol: 
+                return LookupSymbol(root, box.Value.As.Symbol, currentEnv);
             case LispValueType::Cons: {
                     // (car, cdr) implies (func, args)
                     LispRef funcRef = Eval(box.Value.As.Cons.Car, currentEnv);
@@ -532,7 +572,7 @@ public:
                     }
 
                     // Handle special built-ins
-                    LispRef result = funcRef;
+                    LispRef result = root; // Fallback to return the whole CONS when function cannot evaluate
                     TryExecBuiltin(currentEnv, func, box.Value.As.Cons.Cdr, result);
                     
                     // Otherwise, just return the list itself

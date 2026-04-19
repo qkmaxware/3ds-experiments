@@ -1,0 +1,7 @@
+{
+    "name": "runtime-lisp",
+    "displayName": "TinyLISP Interpreter",
+    "version": "1.0.0",
+    "author": "qkmaxware",
+    "description": "Run a subset of LISP scripts on your 3ds"
+}

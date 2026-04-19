@@ -9,6 +9,7 @@ services:
             - dvd-bounce
             - explorer
             - runtime-bf
+            - runtime-lisp
         
     # The following are all services that build specific project executables
     hello-world: 
@@ -47,3 +48,11 @@ services:
         - ./bin:/project/bin
         - ./lib:/project/lib
         - ./projects/runtime_brainfk:/project/src  
+    
+    runtime-lisp: 
+        build: 
+            context: ./environment
+        volumes:
+        - ./bin:/project/bin
+        - ./lib:/project/lib
+        - ./projects/runtime-tinylisp:/project/src  
