@@ -379,6 +379,7 @@ enum class BuiltinFunction {
     Greater,
     Less,
     Equals,
+    Conds
 };
 
 struct SymbolTableEntryProperties {
@@ -407,21 +408,22 @@ private:
 public:
     SymbolTable() : empty(""), Symbols() {
         // Special symbols (see BuiltinFunction enum) or TryExecBuiltin for implementation
-        Intern("define",   SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("lambda",   SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});   
-        Intern("car",      SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("cdr",      SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("cons",     SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("+",        SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("-",        SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("*",        SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("/",        SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("atom?",    SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("list?",    SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("quote",    SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("define",    SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("lambda",    SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});   
+        Intern("car",       SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("cdr",       SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("cons",      SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("+",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("-",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("*",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("/",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("atom?",     SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("list?",     SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("quote",     SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
         Intern(">",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
         Intern("<",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
         Intern("=",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("cond",      SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }})
         protectedCount = Symbols.size(); // Protect built-in symbols from being removed
     }
 
@@ -816,6 +818,40 @@ public:
         else if (name == "quote") {
             // Return the args as is, no processing
             result = argsRef;
+            return true;
+        }
+        else if (name == "cond") {
+            // Cond is a list of CONS where each CONS is (CAR(condition, body) ,CDR... )
+            const LispValue &argsCell = ValueOf(argsRef);
+            if (!argsCell.IsCons()) {
+                // TODO return a better error here
+                result = MemoryUninitialized_Ref;  // Malformed cons 
+                return true;
+            }
+
+            result = Nil_Ref;
+            const LispValue &listCell = argsCell;
+            while (!listCell.IsNil()) {
+                const LispValue &condition_body_pair = ValueOf(listCell.As.Cons.Car);
+                if (!condition_body_pair.IsCons()) {
+                    // Not a cons, skip it
+                    listCell = listCell.As.Cons.Cdr;
+                    continue;;
+                }
+
+                const LispRef condition = condition_body_pair.As.Cons.Car;
+                const LispRef body = condition_body_pair.As.Cons.Cdr;
+
+                const LispRef evaledCondition = Eval(condition, currentEnv);
+                if (ValueOf(evaledCondition).AsBoolean()) {
+                    result = Eval(body, currentEnv);
+                    break;
+                } else {
+                    // Condition failed, try the next one in the list
+                    listCell = listCell.As.Cons.Cdr;
+                    continue;
+                }
+            }
             return true;
         }
 
