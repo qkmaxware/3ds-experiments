@@ -193,6 +193,42 @@ public:
         return v;
     }
 
+    bool Eq(const LispValue &other) {
+        if (this->Type != other.Type)
+            return false;
+
+        switch (this->Type) {
+            case LispValue::Nil:
+                return true;
+            case LispValue::Error:
+                return this->ErrorType == other.ErrorType;
+            case LispValueType::Number:
+                return this->As.Number == other.As.Number;
+            case LispValueType::Symbol:
+                return this->As.Symbol == other.As.Symbol;
+            case LispValueType::Cons:
+                return this->As.Cons.Car == other.As.Cons.Car && this->As.Cons.Cdr == other.As.Cons.Cdr;
+            case LispValueType::Closure
+                return this->As.Closure.Body == other.As.Closure.Body && this->As.Closure.Environment == other.As.Closure.Environment;
+            default:
+                return false;
+        }
+    }
+
+    bool AsBoolean() const {
+        switch (this->Type) {
+            case LispValueType::Nil:
+            case LispValueType::Error:
+                return false;
+
+            case LispValueType::Number:
+                return this->As.Number != 0;
+
+            default:
+                return true;
+        }
+    }
+
     bool IsAtom() const {
         switch (this->Type) {
             case LispValueType::Nil:
@@ -240,6 +276,22 @@ public:
 
     bool IsClosure() const {
         return this->Type == LispValueType::Closure;
+    }
+
+    bool Gt(const LispValue &other) {
+        if (!this->IsNumber())  
+            return false;
+        if (!other.IsNumber())
+            return false;
+        return this->As.Number > other.As.Number;
+    }
+
+    bool Lt(const LispValue &other) {
+        if (!this->IsNumber())  
+            return false;
+        if (!other.IsNumber())
+            return false;
+        return this->As.Number < other.As.Number;
     }
 
     LispValue Add(const LispValue &other) const {
@@ -324,6 +376,9 @@ enum class BuiltinFunction {
     IsAtom,
     IsList,
     Quote,
+    Greater,
+    Less,
+    Equals,
 };
 
 struct SymbolTableEntryProperties {
@@ -364,6 +419,9 @@ public:
         Intern("atom?",    SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
         Intern("list?",    SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
         Intern("quote",    SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern(">",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("<",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
+        Intern("=",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
         protectedCount = Symbols.size(); // Protect built-in symbols from being removed
     }
 
@@ -830,6 +888,40 @@ public:
             TryAlloc(quotient, result, MemoryFlags::None);
             return true;
         }
+        else if (name == ">") {
+            if (evaluatedArgs.size() != 2) {
+                result = ArgumentCountMismatch_Ref;
+                return true;
+            }
+
+            result = evaluatedArgs[0].Gt(evaluatedArgs[1]) ? True_Ref : False_Ref;
+            return true;
+        }
+        else if (name == "<") {
+            if (evaluatedArgs.size() != 2) {
+                result = ArgumentCountMismatch_Ref;
+                return true;
+            }
+
+            result = evaluatedArgs[0].Lt(evaluatedArgs[1]) ? True_Ref : False_Ref;
+            return true;
+        }
+        else if (name == "=") {
+            if (evaluatedArgs.size() < 2) {
+                result = ArgumentCountMismatch_Ref;
+                return true;
+            }
+
+            bool eq = true;
+            LispValue &first = evaluatedArgs[0];
+            for (size_t i = 1; i < evaluatedArgs.size(); i++) {
+                eq &= first.Eq(ValueOf(evaluatedArgs[i]));
+                if (!eq)
+                    break; // Stop as soon as we fail (fail fast)
+            }
+            result = eq ? True_Ref : False_Ref;
+            return true;
+        }
         else if (name == "car") {
             if (evaluatedArgs.size() != 1) {
                 result = ArgumentCountMismatch_Ref;
@@ -922,7 +1014,7 @@ private:
         return c == '+' || c == '-';
     }
     inline bool is_operator(char c) {
-        return c == '+' || c == '-' || c == '*' || c == '/' || c == '?';
+        return c == '+' || c == '-' || c == '*' || c == '/' || c == '?' || '>' || '<' || '=';
     }
     inline bool is_sym_start(char c) {
         return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || is_operator(c);
