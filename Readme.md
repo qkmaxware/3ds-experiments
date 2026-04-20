@@ -100,9 +100,13 @@ The following symbols represent built-in functions which should be complete enou
 (atom? x)           ; Test if 'x' is an atom, '1' if it is, '0' otherwise
 (list? x)           ; Test if 'x' is a list, '1' if it is, '0' otherwise
 (quote x)           ; Return 'x' without evaluating it
+(cond (a? a) ...)   ; Test each condition 'a?'. If it evaluates to true, return 'a' otherwise try the next condition/body pair
 
-(+ x y)             ; Add x and y if both are numbers
-(- x y)             ; Subtract x and y if both are numbers
-(* x y)             ; Multiply x and y if both are numbers
-(/ x y)             ; Divide x and y if both are numbers
+(+ x y ...)         ; Add x and y if both are numbers
+(- x y ...)         ; Subtract x and y if both are numbers
+(* x y ...)         ; Multiply x and y if both are numbers
+(/ x y ...)         ; Divide x and y if both are numbers
+(> x y)             ; Compare x and y returning 1 if x > y or 0 otherwise
+(< x y)             ; Compare x and y returning 1 if x < y or 0 otherwise
+(= x y ...)         ; Compare x and y and if they are equal return 1 otherwise 0
 ```

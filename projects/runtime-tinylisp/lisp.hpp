@@ -198,9 +198,9 @@ public:
             return false;
 
         switch (this->Type) {
-            case LispValue::Nil:
+            case LispValueType::Nil:
                 return true;
-            case LispValue::Error:
+            case LispValueType::Error:
                 return this->ErrorType == other.ErrorType;
             case LispValueType::Number:
                 return this->As.Number == other.As.Number;
@@ -208,7 +208,7 @@ public:
                 return this->As.Symbol == other.As.Symbol;
             case LispValueType::Cons:
                 return this->As.Cons.Car == other.As.Cons.Car && this->As.Cons.Cdr == other.As.Cons.Cdr;
-            case LispValueType::Closure
+            case LispValueType::Closure:
                 return this->As.Closure.Body == other.As.Closure.Body && this->As.Closure.Environment == other.As.Closure.Environment;
             default:
                 return false;
@@ -388,14 +388,14 @@ struct SymbolTableEntryProperties {
     bool Protected;
 
     SymbolTableEntryProperties(): BoundReference(0), ReBindable(true), Protected(false) {}
-}
+};
 
 struct SymbolTableEntry {
     std::string Text;
     SymbolTableEntryProperties Properties;
 
     SymbolTableEntry(): Text(), Properties() {}
-}
+};
 
 class SymbolTable {
 private:
@@ -408,29 +408,33 @@ private:
 public:
     SymbolTable() : empty(""), Symbols() {
         // Special symbols (see BuiltinFunction enum) or TryExecBuiltin for implementation
-        Intern("define",    SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("lambda",    SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});   
-        Intern("car",       SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("cdr",       SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("cons",      SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("+",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("-",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("*",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("/",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("atom?",     SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("list?",     SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("quote",     SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern(">",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("<",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("=",         SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }});
-        Intern("cond",      SymbolTableEntryProperties{{ BoundReference = 0, ReBindable = false, Protected = true }})
-        protectedCount = Symbols.size(); // Protect built-in symbols from being removed
+        SymbolTableEntryProperties defaultProperties;
+        defaultProperties.BoundReference = static_cast<LispRef>(0);
+        defaultProperties.Protected = true;
+        defaultProperties.ReBindable = false;
+
+        Intern("define",    defaultProperties);
+        Intern("lambda",    defaultProperties);   
+        Intern("car",       defaultProperties);
+        Intern("cdr",       defaultProperties);
+        Intern("cons",      defaultProperties);
+        Intern("+",         defaultProperties);
+        Intern("-",         defaultProperties);
+        Intern("*",         defaultProperties);
+        Intern("/",         defaultProperties);
+        Intern("atom?",     defaultProperties);
+        Intern("list?",     defaultProperties);
+        Intern("quote",     defaultProperties);
+        Intern(">",         defaultProperties);
+        Intern("<",         defaultProperties);
+        Intern("=",         defaultProperties);
+        Intern("cond",      defaultProperties);
     }
 
-    iterator begin() { return data.begin(); }
-    iterator end() { return data.end(); }
-    const_iterator begin() const { return data.begin(); }
-    const_iterator end() const { return data.end(); }
+    iterator begin() { return Symbols.begin(); }
+    iterator end() { return Symbols.end(); }
+    const_iterator begin() const { return Symbols.begin(); }
+    const_iterator end() const { return Symbols.end(); }
 
     /// @brief intern a symbol text with default properties
     /// @param name symbol name
@@ -500,7 +504,7 @@ public:
     /// @return string
     const std::string& GetName(SymbolRef ref) const {
         if (ref >= Symbols.size()) return empty;
-        return Symbols[ref];
+        return Symbols[ref].Text;
     }
 };
 
@@ -822,7 +826,7 @@ public:
         }
         else if (name == "cond") {
             // Cond is a list of CONS where each CONS is (CAR(condition, body) ,CDR... )
-            const LispValue &argsCell = ValueOf(argsRef);
+            LispValue &argsCell = ValueOf(argsRef);
             if (!argsCell.IsCons()) {
                 // TODO return a better error here
                 result = MemoryUninitialized_Ref;  // Malformed cons 
@@ -830,25 +834,24 @@ public:
             }
 
             result = Nil_Ref;
-            const LispValue &listCell = argsCell;
-            while (!listCell.IsNil()) {
+            LispRef listCellRef = argsRef;
+            while (!ValueOf(listCellRef).IsNil()) {
+                const LispValue &listCell = ValueOf(listCellRef);
                 const LispValue &condition_body_pair = ValueOf(listCell.As.Cons.Car);
                 if (!condition_body_pair.IsCons()) {
-                    // Not a cons, skip it
-                    listCell = listCell.As.Cons.Cdr;
-                    continue;;
+                    listCellRef = listCell.As.Cons.Cdr;
+                    continue;
                 }
-
-                const LispRef condition = condition_body_pair.As.Cons.Car;
-                const LispRef body = condition_body_pair.As.Cons.Cdr;
-
-                const LispRef evaledCondition = Eval(condition, currentEnv);
+                
+                LispRef condition = condition_body_pair.As.Cons.Car;
+                LispRef body = condition_body_pair.As.Cons.Cdr;
+                
+                LispRef evaledCondition = Eval(condition, currentEnv);
                 if (ValueOf(evaledCondition).AsBoolean()) {
                     result = Eval(body, currentEnv);
                     break;
                 } else {
-                    // Condition failed, try the next one in the list
-                    listCell = listCell.As.Cons.Cdr;
+                    listCellRef = listCell.As.Cons.Cdr;
                     continue;
                 }
             }
@@ -930,7 +933,7 @@ public:
                 return true;
             }
 
-            result = evaluatedArgs[0].Gt(evaluatedArgs[1]) ? True_Ref : False_Ref;
+            result = ValueOf(evaluatedArgs[0]).Gt(ValueOf(evaluatedArgs[1])) ? True_Ref : False_Ref;
             return true;
         }
         else if (name == "<") {
@@ -939,7 +942,7 @@ public:
                 return true;
             }
 
-            result = evaluatedArgs[0].Lt(evaluatedArgs[1]) ? True_Ref : False_Ref;
+            result = ValueOf(evaluatedArgs[0]).Lt(ValueOf(evaluatedArgs[1])) ? True_Ref : False_Ref;
             return true;
         }
         else if (name == "=") {
@@ -949,7 +952,7 @@ public:
             }
 
             bool eq = true;
-            LispValue &first = evaluatedArgs[0];
+            const LispValue &first = ValueOf(evaluatedArgs[0]);
             for (size_t i = 1; i < evaluatedArgs.size(); i++) {
                 eq &= first.Eq(ValueOf(evaluatedArgs[i]));
                 if (!eq)
@@ -1004,7 +1007,7 @@ public:
                 return true;
             }
 
-            LispValue &val = ValueOf(evaluatedArgs[0]);
+            const LispValue &val = ValueOf(evaluatedArgs[0]);
             if (val.IsAtom()) {
                 result = True_Ref;
             } else {
@@ -1018,7 +1021,7 @@ public:
                 return true;
             }
 
-            LispValue &val = ValueOf(evaluatedArgs[0]);
+            const LispValue &val = ValueOf(evaluatedArgs[0]);
             if (val.IsList()) {
                 result = True_Ref;
             } else {
@@ -1050,7 +1053,7 @@ private:
         return c == '+' || c == '-';
     }
     inline bool is_operator(char c) {
-        return c == '+' || c == '-' || c == '*' || c == '/' || c == '?' || '>' || '<' || '=';
+        return c == '+' || c == '-' || c == '*' || c == '/' || c == '?' || c == '>' || c == '<' || c == '=';
     }
     inline bool is_sym_start(char c) {
         return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || is_operator(c);
@@ -1258,7 +1261,7 @@ private:
 
     void Sweep() {
         for (std::vector<MemoryCell>::size_type i = 0; i < Pool.size(); i++) {
-            if ((Pool[i].Flags & MemoryFlags::Used) != 0 && (Pool[i].Flags & MemoryFlags::Marked) != 0) {
+            if ((Pool[i].Flags & MemoryFlags::Used) != 0 && (Pool[i].Flags & MemoryFlags::Marked) == 0) {
                 Free(static_cast<LispRef>(i));
             } else {
                 // Clear mark for next GC cycle
