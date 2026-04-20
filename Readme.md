@@ -57,14 +57,30 @@ podman compose -f compose.yml run --build --rm dvd-bounce
 ### Hello World (id: hello-world)
 This simple project does one thing and one thing only. It prints the text Hello World to the bottom screen of the console. Was a test in seeing if I could even compile a 3ds app.
 
+<div align="center">
+<img src="projects/hello_world/screenshot.png">
+</div>
+
 ### Basic Shapes (id: basic-shapes)
 This project was a test to see if I could write code to abstract away drawing to the framebuffer. In this project you will see squares, circles, lines etc drawn to the top screen of the 3ds. It does nothing else.
+
+<div align="center">
+<img src="projects/basic_shapes/screenshot.png">
+</div>
 
 ### DVD Bounce (id: dvd-bounce)
 This projects attempts to be a tongue and cheek recreation of the old school DVD logo idle screen, but for the 3ds. In this app, the 3ds logo will move around the top screen, bouncing when it hits the edges all while the background slowly changes colour to make it a little more interesting to watch. This was mainly an experiment in simple animation loops. 
 
+<div align="center">
+<img src="projects/dvd_bounce/screenshot.png">
+</div>
+
 ### Explorer (id: explorer)
 This project creates a file-browser (otherwise called an explorer) for the SD card of the 3ds. You can use A to enter a directory or B to leave the directory. Folders with a lot of files will be split into pages in order to fit onto the screen. This project was to test my implementation of an abstraction over the 3ds button inputs. 
+
+<div align="center">
+<img src="projects/explorer/screenshot.png">
+</div>
 
 ### BrainF**k Runtime (id: runtime-bf)
 This project implements an interpreter for the [BrainF**K](https://en.wikipedia.org/wiki/Brainfuck) programming language. Why... I still don't know. But if you ever want to run BF code on your 3ds system, now you can. It uses the same file-browser as the [Explorer](#explorer-id-explorer) project to allow you to select a *.bf file to execute. 
@@ -84,6 +100,11 @@ The following symbols are valid BF operations, all other symbols are ignored:
 [ ; If the If the byte at the data pointer is zero, jump forward to the command after the matching ]
 ] ; If the byte at the data pointer is nonzero, jump backward to the command after the matching [
 ```
+
+<div align="center">
+<img src="projects/runtime_brainfk/screenshot.0.png">
+<img src="projects/runtime_brainfk/screenshot.1.png">
+</div>
 
 ### Tiny LISP Runtime (id: runtime-lisp)
 This project implements an interpreter for a minimal dialect of [LISP](https://en.wikipedia.org/wiki/Lisp_(programming_language)). List like above, IDK Why. It uses the same file-browser as the [Explorer](#explorer-id-explorer) project to allow you to select a *.lisp file to execute. 
@@ -110,3 +131,7 @@ The following symbols represent built-in functions which should be complete enou
 (< x y)             ; Compare x and y returning 1 if x < y or 0 otherwise
 (= x y ...)         ; Compare x and y and if they are equal return 1 otherwise 0
 ```
+
+<div align="center">
+<img src="projects/runtime-tinylisp/screenshot.png">
+</div>
