@@ -1,5 +1,6 @@
 #include <string>
 #include <vector>
+#include <unordered_set>
 #include <cstdint>
 #include <algorithm>
 
@@ -379,7 +380,11 @@ enum class BuiltinFunction {
     Greater,
     Less,
     Equals,
-    Conds
+    Conds,
+    And,
+    Or,
+    Xor,
+    Not
 };
 
 struct SymbolTableEntryProperties {
@@ -429,6 +434,10 @@ public:
         Intern("<",         defaultProperties);
         Intern("=",         defaultProperties);
         Intern("cond",      defaultProperties);
+        Intern("and",       defaultProperties);
+        Intern("or",        defaultProperties);
+        Intern("xor",       defaultProperties);
+        Intern("not",       defaultProperties);
     }
 
     iterator begin() { return Symbols.begin(); }
@@ -522,7 +531,28 @@ public:
 class LispRuntime {
 private:
     SymbolTable Symbols;
-    std::vector<MemoryCell> Pool;
+    std::vector<MemoryCell> Heap;
+    std::vector<std::vector<MemoryCell>::size_type> HeapFreeList;
+    std::vector<LispRef> rootset;
+    std::vector<MemoryCell>::size_type allocatedSinceLastGC;
+    std::vector<MemoryCell>::size_type currentGcThreshold;
+    static const std::vector<MemoryCell>::size_type initialGcThreshold = 100;
+    static const int gcGrowthFactor = 2;
+
+    struct FrameGuard{
+    private:
+        LispRuntime *runtime;
+        std::vector<LispRef>::size_type mark;
+
+    public:
+        FrameGuard(LispRuntime *runtime): runtime(runtime), mark(runtime->rootset.size()) { }
+        ~FrameGuard() {
+            runtime->rootset.resize(mark);
+        }
+
+        FrameGuard(const FrameGuard&) = delete;
+        FrameGuard& operator=(const FrameGuard&) = delete;
+    };
 
     const LispRef Nil_Ref = 0;
     const LispRef ParsingError_Ref = 1;
@@ -535,19 +565,94 @@ private:
 
     const LispRef GlobalEnvironment_Ref = Nil_Ref;
 
-    bool TryAlloc(const LispValue &v, LispRef &reference, MemoryFlags additionalFlags = MemoryFlags::None) {
-        // TODO better allocator besides this linear scan
-        for (std::vector<MemoryCell>::size_type i = 0; i < Pool.size(); i++) {
-            if ((Pool[i].Flags & MemoryFlags::Used) != 0)
-                continue;
-            
-            Pool[i].Flags |= additionalFlags | MemoryFlags::Used;
-            Pool[i].Value = v;
-            reference = static_cast<LispRef>(i);
-            return true;
+    void Mark() {
+        // Start at the roots and mark all reachable memory cells
+        std::vector<LispRef> stack(rootset);
+
+        // Also include global symbols as part of the roots
+        for (const SymbolTableEntry& entry : Symbols) {
+            if (entry.Properties.ReBindable && entry.Properties.BoundReference != Nil_Ref) {
+                stack.push_back(entry.Properties.BoundReference);
+            }
         }
 
-        return false;
+        while (!stack.empty()) {
+            LispRef current = stack.back();
+            stack.pop_back();
+
+            if (current >= Heap.size())
+                continue; // Out of bounds, ignore
+            if ((Heap[current].Flags & MemoryFlags::Used) == 0)
+                continue; // Current cell is not used, ignore
+            if ((Heap[current].Flags & MemoryFlags::Marked) != 0)
+                continue; // Already marked, ignore
+
+            // Mark this cell
+            Heap[current].Flags |= MemoryFlags::Marked;
+
+            // If it's a cons cell, add its children to the stack
+            const LispValue &val = Heap[current].Value;
+            if (val.IsCons()) {
+                stack.push_back(val.As.Cons.Car);
+                stack.push_back(val.As.Cons.Cdr);
+            }
+            else if (val.IsClosure()) {
+                // For closures, we also need to mark the body and environment
+                stack.push_back(val.As.Closure.Body);
+                stack.push_back(val.As.Closure.Environment);
+            }
+        }
+    }
+
+    void Sweep() {
+        for (std::vector<MemoryCell>::size_type i = 0; i < Heap.size(); i++) {
+            if ((Heap[i].Flags & MemoryFlags::Used) != 0 && (Heap[i].Flags & MemoryFlags::Marked) == 0) {
+                Free(static_cast<LispRef>(i));
+            } else {
+                // Clear mark for next GC cycle
+                Heap[i].Flags &= ~MemoryFlags::Marked;
+            }
+        }
+        if (rootset.size() < (rootset.capacity() >> 1))
+            rootset.shrink_to_fit();
+    }
+
+    void Collect() {
+        Mark();
+        Sweep();
+    }
+
+    bool TryAlloc(const LispValue &v, LispRef &reference, MemoryFlags additionalFlags = MemoryFlags::None) {
+        // See if we need to trigger GC
+        auto freeSpace = HeapFreeList.size();
+        auto heapSize = Heap.size();
+        unsigned int minGcThreshold = heapSize <= 20 ? 1 : heapSize / 20; // 5 % of the heap
+        if (freeSpace < minGcThreshold || allocatedSinceLastGC >= currentGcThreshold) {
+            // Always collect if 0 free space. Otherwise see if we meet some kind of "smart" GC condition TODO 
+            Collect();
+            allocatedSinceLastGC = 0;
+            freeSpace = HeapFreeList.size();
+
+            std::vector<MemoryCell>::size_type nextGcThreshold = (heapSize - freeSpace) * gcGrowthFactor;
+            if (nextGcThreshold > heapSize)
+                nextGcThreshold = heapSize;
+            if (nextGcThreshold < initialGcThreshold)
+                nextGcThreshold = initialGcThreshold;
+            currentGcThreshold = nextGcThreshold;
+        }
+
+        // Allocate from free list
+        if (freeSpace == 0)
+            return false;
+
+        std::vector<MemoryCell>::size_type free_index = HeapFreeList.back(); HeapFreeList.pop_back();
+        MemoryCell &cell = Heap[free_index];
+        
+        cell.Flags |= additionalFlags | MemoryFlags::Used;
+        cell.Value = v;
+        reference = static_cast<LispRef>(free_index);
+        allocatedSinceLastGC++;
+        return true;
     }
 
     LispRef Alloc(const LispValue &v, MemoryFlags additionalFlags = MemoryFlags::None) {
@@ -560,13 +665,14 @@ private:
     }
 
     void Free(const LispRef reference) {
-        if (reference >= Pool.size())
+        if (reference >= Heap.size())
             return;
-        if ((Pool[reference].Flags & MemoryFlags::Protected) != 0)
+        if ((Heap[reference].Flags & MemoryFlags::Protected) != 0)
             return;
 
-        Pool[reference].Flags &= ~(MemoryFlags::Used | MemoryFlags::Marked);
-        Pool[reference].Value = LispValue::Error(LispErrorCode::MemoryUninitialized);
+        Heap[reference].Flags &= ~(MemoryFlags::Used | MemoryFlags::Marked);
+        Heap[reference].Value = LispValue::Error(LispErrorCode::MemoryUninitialized);
+        HeapFreeList.push_back(static_cast<std::vector<MemoryCell>::size_type>(reference));
     }
 
 
@@ -622,7 +728,12 @@ private:
     }
 
 public:
-    LispRuntime(std::vector<MemoryCell>::size_type heap_size): Symbols(), Pool(heap_size) {
+    LispRuntime(std::vector<MemoryCell>::size_type heap_size): Symbols(), Heap(heap_size), HeapFreeList(heap_size), rootset(), allocatedSinceLastGC(0), currentGcThreshold(initialGcThreshold) {
+        // Generate the free list 
+        for (unsigned int i = 0; i < heap_size; ++i) {
+            HeapFreeList[i] = i;
+        }
+
         // Pre-allocate some "special" values in the pool... maybe (that would allow Eval to always return a LispRef)
         Alloc(LispValue::Nil(), MemoryFlags::Protected);
         Alloc(LispValue::Error(LispErrorCode::ParsingError), MemoryFlags::Protected);
@@ -631,50 +742,57 @@ public:
         Alloc(LispValue::Error(LispErrorCode::MemoryUninitialized), MemoryFlags::Protected);
         Alloc(LispValue::Error(LispErrorCode::MemoryOutOfSpace), MemoryFlags::Protected);
         Alloc(LispValue::Number(1), MemoryFlags::Protected); // True
-        Alloc(LispValue::Number(0), MemoryFlags::Protected); // False
+        Alloc(LispValue::Number(0), MemoryFlags::Protected); // 
     }
 
-    // Reset the runtime IE clear all memory
+    // @brief Reset VM state, clear all allocated memory
     void Reset() {
         // Free all old memory
-        for (std::vector<MemoryCell>::size_type i = 0; i < Pool.size(); i++) {
+        for (std::vector<MemoryCell>::size_type i = 0; i < Heap.size(); i++) {
             Free(static_cast<LispRef>(i));
         }
         Symbols.Clear(); // Clear symbol table as well
+        rootset.clear();
+        allocatedSinceLastGC = 0;
+        currentGcThreshold = initialGcThreshold;
     }
 
+    // @brief Get a reference to the symbol table
     SymbolTable& GetSymbols() {
         return this->Symbols;
     }
 
-    // I really only expect this to be used for debugging
+    // @brief Get the actual value associated with the heap reference
     LispValue& ValueOf(LispRef root) {
         // Ensure in pool
-        if (root >= Pool.size()) {
-            return Pool[MemoryAccessOutOfBounds_Ref].Value;
+        if (root >= Heap.size()) {
+            return Heap[MemoryAccessOutOfBounds_Ref].Value;
         }
         
         // Ensure is a real value
-        const MemoryCell &box = Pool[root];
+        const MemoryCell &box = Heap[root];
         if ((box.Flags & MemoryFlags::Used) == 0) {
-            return Pool[MemoryUninitialized_Ref].Value;
+            return Heap[MemoryUninitialized_Ref].Value;
         }
 
         // Return a copy of the value
-        return Pool[root].Value;
+        return Heap[root].Value;
     }
 
     LispRef Eval(LispRef root, LispRef currentEnv) {
         // Ensure in pool
-        if (root >= Pool.size()) {
+        if (root >= Heap.size()) {
             return MemoryAccessOutOfBounds_Ref;
         }
         
         // Ensure is a real value
-        const MemoryCell &box = Pool[root];
+        const MemoryCell &box = Heap[root];
         if ((box.Flags & MemoryFlags::Used) == 0) {
             return MemoryUninitialized_Ref;
         }
+
+        FrameGuard guard(this); // Push a frameguard to auto remove any pushed back allocations from the rootset after this eval exits
+        rootset.push_back(currentEnv);
 
         // Evaluate the reference to a value
         switch (box.Value.Type) {
@@ -689,6 +807,7 @@ public:
             case LispValueType::Cons: {
                     // (car, cdr) implies (func, args)
                     LispRef funcRef = Eval(box.Value.As.Cons.Car, currentEnv);
+                    rootset.push_back(funcRef);
                     const LispValue &func = ValueOf(funcRef);
 
                     // Handle user defined closures
@@ -727,12 +846,14 @@ public:
                                 break;
                             
                             LispRef argValue = Eval(arg.As.Cons.Car, currentEnv);
+                            rootset.push_back(argValue);
 
                             // Extend the environment with this binding
                             newEnv = ExtendEnvironment(newEnv, paramSymbol, argValue);
                             if (newEnv == MemoryOutOfSpace_Ref) {
                                 return MemoryOutOfSpace_Ref;
                             }
+                            rootset.push_back(newEnv);
                             
                             // Move to next parameter and argument
                             currentParam = param.As.Cons.Cdr;
@@ -813,10 +934,12 @@ public:
                 return true;
             }
 
-            // Don't evaluate the rest, just bind it
-            bool didBind = Symbols.Bind(symbolCell.As.Symbol, argsCell.As.Cons.Cdr);
+            // Evaluate the rest and bind the result
+            const LispRef valueToBind = Eval(argsCell.As.Cons.Cdr, currentEnv);
+            rootset.push_back(valueToBind);
+            bool didBind = Symbols.Bind(symbolCell.As.Symbol, valueToBind);
             if (didBind) {
-                result = argsCell.As.Cons.Cdr;
+                result = valueToBind;
             } else {
                 result = Nil_Ref; // If we didn't bind, return Nil
             }
@@ -850,8 +973,10 @@ public:
                 LispRef body = condition_body_pair.As.Cons.Cdr;
                 
                 LispRef evaledCondition = Eval(condition, currentEnv);
+                rootset.push_back(evaledCondition);
                 if (ValueOf(evaledCondition).AsBoolean()) {
                     result = Eval(body, currentEnv);
+                    rootset.push_back(result);
                     break;
                 } else {
                     listCellRef = listCell.As.Cons.Cdr;
@@ -877,6 +1002,7 @@ public:
             
             LispRef evaledArg = Eval(argCell.As.Cons.Car, currentEnv);
             evaluatedArgs.push_back(evaledArg);
+            rootset.push_back(evaledArg);
             
             currentArg = argCell.As.Cons.Cdr;
         }
@@ -1032,6 +1158,46 @@ public:
             }
             return true;
         }
+        else if (name == "and") {
+            bool res = true;
+            for (size_t i = 0; i < evaluatedArgs.size(); i++) {
+                res &= ValueOf(evaluatedArgs[i]).AsBoolean();
+            }  
+
+            result = res == true ? True_Ref : False_Ref ;
+            return true;
+        } 
+        else if (name == "or") {
+            bool res = false;
+            for (size_t i = 0; i < evaluatedArgs.size(); i++) {
+                res |= ValueOf(evaluatedArgs[i]).AsBoolean();
+            }  
+
+            result = res == true ? True_Ref : False_Ref ;
+            return true;
+        } 
+        else if (name == "xor") {
+            if (evaluatedArgs.size() != 2) {
+                result = ArgumentCountMismatch_Ref;
+                return true;
+            }
+
+            bool res = ValueOf(evaluatedArgs[0]).AsBoolean() ^ ValueOf(evaluatedArgs[1]).AsBoolean();
+
+            result = res == true ? True_Ref : False_Ref ;
+            return true;
+        }
+        else if (name == "not") {
+            if (evaluatedArgs.size() != 1) {
+                result = ArgumentCountMismatch_Ref;
+                return true;
+            }
+
+            bool val = ValueOf(evaluatedArgs[0]).AsBoolean();
+
+            result = val == true ? False_Ref : True_Ref ;
+            return true;
+        }
 
         // Was not a builtin
         return false;
@@ -1046,6 +1212,7 @@ public:
     }
 
 private:
+#pragma region Parsing
     inline bool is_whitespace(char c) {
         return c == ' ' || c == '\n' || c == '\r' || c == '\b' || c == '\t' || c == '\f' || c == '\v';
     }
@@ -1223,56 +1390,6 @@ private:
         return exprs;
     }
 
-    void Mark(std::vector<LispRef> &roots) {
-        // Start at the roots and mark all reachable memory cells
-        std::vector<LispRef> stack(roots);
-
-        // Also include global symbols as part of the roots
-        for (const SymbolTableEntry& entry : Symbols) {
-            if (entry.Properties.ReBindable) {
-                stack.push_back(entry.Properties.BoundReference);
-            }
-        }
-
-        while (!stack.empty()) {
-            LispRef current = stack.back();
-            stack.pop_back();
-
-            if (current >= Pool.size())
-                continue; // Out of bounds, ignore
-            if ((Pool[current].Flags & MemoryFlags::Used) == 0)
-                continue; // Current cell is not used, ignore
-            if ((Pool[current].Flags & MemoryFlags::Marked) != 0)
-                continue; // Already marked, ignore
-
-            // Mark this cell
-            Pool[current].Flags |= MemoryFlags::Marked;
-
-            // If it's a cons cell, add its children to the stack
-            const LispValue &val = Pool[current].Value;
-            if (val.IsCons()) {
-                stack.push_back(val.As.Cons.Car);
-                stack.push_back(val.As.Cons.Cdr);
-            }
-            else if (val.IsClosure()) {
-                // For closures, we also need to mark the body and environment
-                stack.push_back(val.As.Closure.Body);
-                stack.push_back(val.As.Closure.Environment);
-            }
-        }
-    }
-
-    void Sweep() {
-        for (std::vector<MemoryCell>::size_type i = 0; i < Pool.size(); i++) {
-            if ((Pool[i].Flags & MemoryFlags::Used) != 0 && (Pool[i].Flags & MemoryFlags::Marked) == 0) {
-                Free(static_cast<LispRef>(i));
-            } else {
-                // Clear mark for next GC cycle
-                Pool[i].Flags &= ~MemoryFlags::Marked;
-            }
-        }
-    }
-
 public:
     std::vector<LispRef> Parse(ICharStream &stream) {
         this->last_parse_error = ParseErrorCode::None; // Reset parse error state
@@ -1283,19 +1400,10 @@ public:
         LispRef lastResult = Nil_Ref;
         for (LispRef expr: exprs) {
             lastResult = Eval(expr);
-            MaybeCollect(exprs); // See if we need to collect after each evaluation to prevent memory leaks (since Eval can allocate new memory)
         }
         return lastResult;
     }
-
-    void MaybeCollect(std::vector<LispRef> &roots) {
-        // Collect(roots);
-    }
-
-    void Collect(std::vector<LispRef> &roots) {
-        Mark(roots);
-        Sweep();
-    }
+#pragma endregion
 
     std::string Stringify(LispRef ref) {
         const LispValue &val = ValueOf(ref);
@@ -1311,7 +1419,7 @@ public:
             case LispValueType::Closure:
                 return "<closure>";
             case LispValueType::Error:
-                return "<error: " + std::to_string(static_cast<uint8_t>(val.ErrorType)) + ">";
+                return "<error: " + Enum2String(val.ErrorType) + ">";
             default:
                 return "<unknown>";
         }

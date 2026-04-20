@@ -145,6 +145,8 @@ public:
         std::vector<LispRef> exprs = this->Parse(stream);
         if (!DidParseSuccessfully()) {
             this->state = LispRuntimeState::ProgramError;
+            display.Write("Failed to parse expression: ");
+            display.Writeln(Enum2String(GetParsingError()));
             return;
         }
 
