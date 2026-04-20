@@ -193,7 +193,7 @@ public:
         return v;
     }
 
-    bool Eq(const LispValue &other) {
+    bool Eq(const LispValue &other) const {
         if (this->Type != other.Type)
             return false;
 
@@ -278,7 +278,7 @@ public:
         return this->Type == LispValueType::Closure;
     }
 
-    bool Gt(const LispValue &other) {
+    bool Gt(const LispValue &other) const {
         if (!this->IsNumber())  
             return false;
         if (!other.IsNumber())
@@ -286,7 +286,7 @@ public:
         return this->As.Number > other.As.Number;
     }
 
-    bool Lt(const LispValue &other) {
+    bool Lt(const LispValue &other) const {
         if (!this->IsNumber())  
             return false;
         if (!other.IsNumber())
@@ -478,7 +478,7 @@ public:
 
     /// @brief bind a given symbol reference to a value on the runtime's heap
     bool Bind(SymbolRef symbol, LispRef value) {
-        auto index = static_cast<std::vector<SymbolTableEntry>::size_t>(symbol);
+        auto index = static_cast<std::vector<SymbolTableEntry>::size_type>(symbol);
         if (index >= Symbols.size())
             return false; // Do nothing if out of range
 
@@ -493,9 +493,12 @@ public:
     /// @brief clear all symbols from the symbol table except protected symbols (usually builtins)
     void Clear() {
         // Clear all except protected symbols
-        std::erase_if(Symbols, [](const SymbolTableEntry& sym) {
-            return !sym.Properties.Protected;
-        });
+        Symbols.erase(
+            std::remove_if(Symbols.begin(), Symbols.end(), [](const SymbolTableEntry& sym) {
+                return !sym.Properties.Protected;
+            }),
+            Symbols.end()
+        );
         Symbols.shrink_to_fit();
     }
     
