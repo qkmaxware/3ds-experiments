@@ -435,7 +435,29 @@ void Screen::FillCircle(int cx, int cy, int radius, Colour stroke, Colour fill)
     }
 }
 
-void Screen::Stamp(int x, int y, const Texture &texture) {
+void Screen::StampGlyph(const Glyph& glyph, int x, int y, int scale, Colour foreground, Colour background) {
+    int xPtr = x;
+    int yPtr = y;
+    for (int row = 0; row < Typeface::Height; row++) {
+        uint8_t row_data = glyph.Rows[row];
+        
+        for (int yrep = 0; yrep < scale; yrep++) {
+            for (int col = 0; col < Typeface::Width; col++) {
+                for (int xrep = 0; xrep < scale; xrep++) {
+                    if ((row_data & (0x80 >> col)) != 0) {
+                        screen.SetPixel(xPtr++, yPtr, foreground);
+                    }
+                    else {
+                        screen.SetPixel(xPtr++, yPtr, background);
+                    }
+                }
+            }
+            yPtr++;
+        }
+    }
+}
+
+void Screen::StampTexture(int x, int y, const Texture &texture) {
     for (int py = 0; py < texture.Height; py++) {
         for (int px = 0; px < texture.Width; px++) {
             Colour c = texture.GetPixel(px, py);
@@ -764,7 +786,7 @@ void CitrusApp::Run() {
 	gfxExit();
 }
 
-MultiStateCitrusApp::MultiStateCitrusApp(): CitrusApp(), hasEnteredCurrentState(false), currentStateId(0) {}
+MultiStateCitrusApp::MultiStateCitrusApp(MultiStateCitrusApp::StateId defaultState): CitrusApp(), hasEnteredCurrentState(false), currentStateId(defaultState) {}
 
 void MultiStateCitrusApp::loop(Displays &displays, Input &input) {
     // Get the most recent state
@@ -924,6 +946,10 @@ int Imgui::FileBrowser::FileCount() {
 
 bool starts_with(const std::string &str, const std::string &prefix) {
     return str.compare(0, prefix.size(), prefix) == 0;
+}
+
+const std::string& Imgui::GetDir() {
+    return this->current_dir;
 }
 
 void Imgui::FileBrowser::SetDir(const std::string &current_dir) {

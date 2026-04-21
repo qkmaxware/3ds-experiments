@@ -1,7 +1,7 @@
 services:
-    # This is a pseudo-service which simily tells compose to build all the depends_on projects
+    # This is a pseudo-service which simply tells compose to build all the depends_on projects
     all:
-        image: alpine
+        image: busybox
         command: ["true"]
         depends_on:
             - hello-world
@@ -10,7 +10,8 @@ services:
             - explorer
             - runtime-bf
             - runtime-lisp
-        
+            - micro
+
     # The following are all services that build specific project executables
     hello-world: 
         build: 
@@ -48,7 +49,6 @@ services:
         - ./bin:/project/bin
         - ./lib:/project/lib
         - ./projects/runtime_brainfk:/project/src  
-    
     runtime-lisp: 
         build: 
             context: ./environment
@@ -56,3 +56,11 @@ services:
         - ./bin:/project/bin
         - ./lib:/project/lib
         - ./projects/runtime-tinylisp:/project/src  
+
+    micro: 
+        build: 
+            context: ./environment
+        volumes:
+        - ./bin:/project/bin
+        - ./lib:/project/lib
+        - ./projects/micro:/project/src  

@@ -1,0 +1,7 @@
+{
+    "name": "micro-3ds",
+    "displayName": "Micro",
+    "version": "1.0.0",
+    "author": "qkmaxware",
+    "description": "Simple text editor for the 3DS"
+}

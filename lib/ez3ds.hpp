@@ -231,6 +231,13 @@ public:
 
 };
 
+namespace Typeface {
+struct Glyph {
+public:
+    uint8_t Rows[12];
+};
+}
+
 struct Screen {
 private:
     const int frameBufferFormat;
@@ -263,8 +270,19 @@ public:
     void FillRect(int x, int y, int width, int height, Colour stroke, Colour fill);
     void DrawCircle(int cx, int cy, int radius, Colour stroke);
     void FillCircle(int cx, int cy, int radius, Colour stroke, Colour fill);
+    /// @brief Draw a glyph at the given coordinates
+    /// @param glyph glyph to draw
+    /// @param x top left corner to start drawing at 
+    /// @param y top left corner to start drawing at
+    /// @param scale glyph scale >= 1
+    /// @param foreground colour to use for foreground
+    /// @param background colour to use for background
+    void StampGlyph(const Glyph& glyph, int x, int y, int scale, Colour foreground, Colour background);
     /// @brief Stamp a texture onto the screen at the given x,y coordinates
-    void Stamp(int x, int y, const Texture &texture);
+    /// @param x top left corner to start drawing at
+    /// @param y top left corner to start drawing at
+    /// @param texture texture to draw
+    void StampTexture(int x, int y, const Texture &texture);
 };
 
 struct Displays {
@@ -297,11 +315,6 @@ const int Kerning = 1;
 const int Height = 12;
 const int LineHeight = 16;
 const int VPad = 2;
-
-struct Glyph {
-public:
-    uint8_t Rows[12];
-};
 
 const int CharacterCount = 128;
 using Font = std::array<Glyph, CharacterCount>;
@@ -397,6 +410,7 @@ public:
             bool HasErrorOccured();
             std::string CurrentDirectory();
             int FileCount();
+            const std::string& GetDir();
             void SetDir(const std::string &current_dir);
             bool SelectFile(Screen &display, Input &input);
             std::string Highlighted();
@@ -430,8 +444,7 @@ public:
 
 };
 
-// TODO create a "state machine" of other CitrusApps
-// Call setup on enter state, cleanup on exit state, and that state's loop method each iteration
+/// @brief A CitrusApp that uses sub-apps to represent diffent states where the app can transition from one sub-app to another.
 class MultiStateCitrusApp: public CitrusApp {
 public:
     using StateId = size_t;
@@ -442,7 +455,7 @@ private:
 
 public:
 
-    MultiStateCitrusApp();
+    MultiStateCitrusApp(StateId defaultState);
 
     void loop(Displays &displays, Input &input) override;
     virtual CitrusApp& GetState(StateId id) = 0;
