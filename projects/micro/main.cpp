@@ -38,11 +38,11 @@ public:
 
     MultiStateCitrusApp::StateId NextState(MultiStateCitrusApp::StateId currentId, CitrusApp &currentState) override {
         // Handle state transitions
-        switch (static_cast<AppState>(id)) {
-
+        switch (static_cast<AppState>(currentId)) {
             default:
                 return currentId;
         }
+        return currentId;
     }
 
     void cleanup() override {

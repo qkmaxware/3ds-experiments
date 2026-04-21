@@ -86,95 +86,107 @@ private:
     const Colour buttonColour           = Colour::FromRgb(66,69,73);
     const Colour drkButtonColour        = Colour::FromRgb(30,33,36);
 
+    bool caps;
+
 public:
-    Keypad()
+    Keypad(): caps(false)
     {
 
     }
 
-    void Repaint(Displays &displays) {
+    void Repaint(Displays &displays, Input &input) {
         Screen &screen = displays.Lower;
         screen.Clear();
 
-        RepaintHeader();
-        RepaintKeys();
+        RepaintHeader(screen, input);
+        RepaintKeys(screen, input);
     }
 
 protected:
-    void RepaintHeader(Screen &screen) {
+    void RepaintHeader(Screen &screen, Input &input) {
         screen.FillRect(0, 0, screen.Width, ROW_HEIGHT, headerColour, headerColour);
         
         // TODO tabs for different character sets
 
     }
 
-    void RepaintKeys(Screen &screen) {
+    void RepaintKeys(Screen &screen, Input &input) {
         // TODO different keyboard for different character sets
-        RepaintKeysAlpha(screen);
+        RepaintKeysAlpha(screen, input);
     }
 
-    void RepaintKeysAlpha(Screen &screen) {
+    void RepaintKeysAlpha(Screen &screen, Input &input) {
         // Row 1
-        DrawKey(screen, '1', 0, 0);
-        DrawKey(screen, '2', 0, 1);
-        DrawKey(screen, '3', 0, 2);
-        DrawKey(screen, '4', 0, 3);
-        DrawKey(screen, '5', 0, 4);
-        DrawKey(screen, '6', 0, 5);
-        DrawKey(screen, '7', 0, 6);
-        DrawKey(screen, '8', 0, 7);
-        DrawKey(screen, '9', 0, 8);
-        DrawKey(screen, '0', 0, 9);
+        DrawKey(screen, input, '1', 0, 0);
+        DrawKey(screen, input, '2', 0, 1);
+        DrawKey(screen, input, '3', 0, 2);
+        DrawKey(screen, input, '4', 0, 3);
+        DrawKey(screen, input, '5', 0, 4);
+        DrawKey(screen, input, '6', 0, 5);
+        DrawKey(screen, input, '7', 0, 6);
+        DrawKey(screen, input, '8', 0, 7);
+        DrawKey(screen, input, '9', 0, 8);
+        DrawKey(screen, input, '0', 0, 9);
 
         // Row 2
-        DrawKey(screen, 'q', 1, 0);
-        DrawKey(screen, 'w', 1, 1);
-        DrawKey(screen, 'e', 1, 2);
-        DrawKey(screen, 'r', 1, 3);
-        DrawKey(screen, 't', 1, 4);
-        DrawKey(screen, 'y', 1, 5);
-        DrawKey(screen, 'u', 1, 6);
-        DrawKey(screen, 'i', 1, 7);
-        DrawKey(screen, 'o', 1, 8);
-        DrawKey(screen, 'p', 1, 9);
+        DrawKey(screen, input, caps ? 'Q' : 'q', 1, 0);
+        DrawKey(screen, input, caps ? 'W' : 'w', 1, 1);
+        DrawKey(screen, input, caps ? 'E' : 'e', 1, 2);
+        DrawKey(screen, input, caps ? 'R' : 'r', 1, 3);
+        DrawKey(screen, input, caps ? 'T' : 't', 1, 4);
+        DrawKey(screen, input, caps ? 'Y' : 'y', 1, 5);
+        DrawKey(screen, input, caps ? 'U' : 'u', 1, 6);
+        DrawKey(screen, input, caps ? 'I' : 'i', 1, 7);
+        DrawKey(screen, input, caps ? 'O' : 'o', 1, 8);
+        DrawKey(screen, input, caps ? 'P' : 'p', 1, 9);
 
         // Row 3
-        DrawKey(screen, 'a', 2, 0, 16);
-        DrawKey(screen, 's', 2, 1, 16);
-        DrawKey(screen, 'd', 2, 2, 16);
-        DrawKey(screen, 'f', 2, 3, 16);
-        DrawKey(screen, 'g', 2, 4, 16);
-        DrawKey(screen, 'h', 2, 5, 16);
-        DrawKey(screen, 'j', 2, 6, 16);
-        DrawKey(screen, 'k', 2, 7, 16);
-        DrawKey(screen, 'l', 2, 8, 16);
+        DrawKey(screen, input, caps ? 'A' : 'a', 2, 0, 16);
+        DrawKey(screen, input, caps ? 'S' : 's', 2, 1, 16);
+        DrawKey(screen, input, caps ? 'D' : 'd', 2, 2, 16);
+        DrawKey(screen, input, caps ? 'F' : 'f', 2, 3, 16);
+        DrawKey(screen, input, caps ? 'G' : 'g', 2, 4, 16);
+        DrawKey(screen, input, caps ? 'H' : 'h', 2, 5, 16);
+        DrawKey(screen, input, caps ? 'J' : 'j', 2, 6, 16);
+        DrawKey(screen, input, caps ? 'K' : 'k', 2, 7, 16);
+        DrawKey(screen, input, caps ? 'L' : 'l', 2, 8, 16);
 
         // Row 4
-        DrawKey(screen, 'z', 3, 0, 16 + 32);
-        DrawKey(screen, 'x', 3, 1, 16 + 32);
-        DrawKey(screen, 'c', 3, 2, 16 + 32);
-        DrawKey(screen, 'v', 3, 3, 16 + 32);
-        DrawKey(screen, 'b', 3, 4, 16 + 32);
-        DrawKey(screen, 'n', 3, 5, 16 + 32);
-        DrawKey(screen, 'm', 3, 6, 16 + 32);
+        if (DrawKey(screen, input, Typeface::SpecialGlyphs::ChevronUp, 3, 0, 16, 1, caps ? highlightFontColour : fontColour, drkButtonColour)) {caps = !caps;}
+        DrawKey(screen, input, caps ? 'Z' :'z', 3, 0, 16 + 32);
+        DrawKey(screen, input, caps ? 'X' :'x', 3, 1, 16 + 32);
+        DrawKey(screen, input, caps ? 'C' :'c', 3, 2, 16 + 32);
+        DrawKey(screen, input, caps ? 'V' :'v', 3, 3, 16 + 32);
+        DrawKey(screen, input, caps ? 'B' :'b', 3, 4, 16 + 32);
+        DrawKey(screen, input, caps ? 'N' :'n', 3, 5, 16 + 32);
+        DrawKey(screen, input, caps ? 'M' :'m', 3, 6, 16 + 32);
+        DrawKey(screen, input, Typeface::SpecialGlyphs::Backspace, 3, 7, 16 + 32, 1, fontColour, drkButtonColour);
 
         // Row 5
-        DrawKey(screen, ',', 4, 0, 16 + 32);
-        DrawKey(screen, ' ', 4, 1, 16 + 32, 5);
-        DrawKey(screen, '.', 4, 6, 16 + 32);
+        DrawKey(screen, input, ',', 4, 0, 16 + 32);
+        DrawKey(screen, input, ' ', 4, 1, 16 + 32, 5);
+        DrawKey(screen, input, '.', 4, 6, 16 + 32);
+        DrawKey(screen, input, Typeface::SpecialGlyphs::Return, 4, 7, 16 + 32, 1, fontColour, drkButtonColour);
     }
 
-    inline void DrawKey(Screen &screen, char c, int row, int col, int offset = 0, int colspan=1) {
+    inline bool DrawKey(Screen &screen, Input &input, const Typeface::Glyph glyph, int row, int col, int offset, int colspan, const Colour& font, const Colour& button) {
         const int VERT_OFFSET = ROW_HEIGHT;
         const int PADDING = 2;
         const int GLYPH_SCALE = 2;
 
-        int x = col * CELL_SIZE + offset;
+        int x = col * COLUMN_WIDTH + offset;
         int y = VERT_OFFSET + row * ROW_HEIGHT;
-        screen.FillRect(x + PADDING, y + PADDING, COLUMN_WIDTH * colspan - 2 * PADDING, ROW_HEIGHT - 2 * PADDING, buttonColour, buttonColour);
+        screen.FillRect(x + PADDING, y + PADDING, COLUMN_WIDTH * colspan - 2 * PADDING, ROW_HEIGHT - 2 * PADDING, button, button);
         int gx = x + ((COLUMN_WIDTH * colspan) >> 1) - ((Typeface::Width * GLYPH_SCALE) >> 1);
         int gy = y + (ROW_HEIGHT >> 1) - (Typeface::Height >> 1);
-        screen.StampGlyph(Typeface::DefaultFont[c], gx, gy, GLYPH_SCALE, fontColour, alpha);
+        screen.StampGlyph(glyph, gx, gy, GLYPH_SCALE, font, alpha);
+        
+        const Touchpad &pad = input.GetTouchpad();
+        return pad.IsJustPressed() && pad.IsTouchInRect(x, y, COLUMN_WIDTH, ROW_HEIGHT); // Did the user press this button?
+    }
+
+    inline bool DrawKey(Screen &screen, Input &input, char c, int row, int col, int offset = 0, int colspan=1) {
+        return DrawKey(screen, input, Typeface::DefaultFont[c], row, col, offset, colspan, fontColour, buttonColour);
     }
 };
 
@@ -201,7 +213,7 @@ public:
         // Do stuff
 
         // Flush buffer(s)
-        keypad.Repaint(displays);
+        keypad.Repaint(displays, input);
         console.Flush(displays);
     }
 

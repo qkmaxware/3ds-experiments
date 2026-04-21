@@ -87,16 +87,20 @@ public:
     Touchpad(): wasTouched(false), isTouched(false), X(0), Y(0)
     {}
 
-    inline bool IsPressed() {
+    inline bool IsPressed() const {
         return this->isTouched;
     }
 
-    inline bool IsJustPressed() {
+    inline bool IsJustPressed() const {
         return this->isTouched && !this->wasTouched;
     }
 
-    inline bool IsJustReleased() {
+    inline bool IsJustReleased() const {
         return !this->isTouched && this->wasTouched;
+    }
+
+    inline bool IsTouchInRect(int x, int y, int width, int height) const {
+        return X >= x && X <= (x + width) && Y >= y && Y <= (y + height);
     }
 
     inline void SetTouch(uint16_t x, uint16_t y, bool touched) {
@@ -137,7 +141,7 @@ public:
     bool Released(KeyCodes code) const;
 
     Joystick GetAxes(JoystickNames stick) const;
-    Touchpad GetTouchpad() const;
+    Touchpad& GetTouchpad();
 
     std::string Prompt(const std::string &question) const;
     int PromptInt(const std::string &question) const;
@@ -277,7 +281,7 @@ public:
     /// @param scale glyph scale >= 1
     /// @param foreground colour to use for foreground
     /// @param background colour to use for background
-    void StampGlyph(const Glyph& glyph, int x, int y, int scale, Colour foreground, Colour background);
+    void StampGlyph(const Typeface::Glyph& glyph, int x, int y, int scale, Colour foreground, Colour background);
     /// @brief Stamp a texture onto the screen at the given x,y coordinates
     /// @param x top left corner to start drawing at
     /// @param y top left corner to start drawing at
@@ -327,6 +331,8 @@ extern const Glyph ChevronUp;
 extern const Glyph ChevronDown;
 extern const Glyph LeftHalfBlock;
 extern const Glyph RightHalfBlock;
+extern const Glyph Return;
+extern const Glyph Backspace;
 }
 }
 

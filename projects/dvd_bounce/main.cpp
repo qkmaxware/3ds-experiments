@@ -61,7 +61,7 @@ public:
             vy = -vy;
 
         // Draw rect
-        displays.Upper.Stamp(px, py, TEX_IMG);
+        displays.Upper.StampTexture(px, py, TEX_IMG);
     }
 
     void cleanup() override {

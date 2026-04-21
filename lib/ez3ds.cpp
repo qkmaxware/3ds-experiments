@@ -55,7 +55,7 @@ Joystick Input::GetAxes(JoystickNames stick) const {
     }
 }
 
-Touchpad Input::GetTouchpad() const {
+Touchpad& Input::GetTouchpad() {
     return this->pad;
 }
 
@@ -435,7 +435,7 @@ void Screen::FillCircle(int cx, int cy, int radius, Colour stroke, Colour fill)
     }
 }
 
-void Screen::StampGlyph(const Glyph& glyph, int x, int y, int scale, Colour foreground, Colour background) {
+void Screen::StampGlyph(const Typeface::Glyph& glyph, int x, int y, int scale, Colour foreground, Colour background) {
     int xPtr = x;
     int yPtr = y;
     for (int row = 0; row < Typeface::Height; row++) {
@@ -445,13 +445,14 @@ void Screen::StampGlyph(const Glyph& glyph, int x, int y, int scale, Colour fore
             for (int col = 0; col < Typeface::Width; col++) {
                 for (int xrep = 0; xrep < scale; xrep++) {
                     if ((row_data & (0x80 >> col)) != 0) {
-                        screen.SetPixel(xPtr++, yPtr, foreground);
+                        this->SetPixel(xPtr++, yPtr, foreground);
                     }
                     else {
-                        screen.SetPixel(xPtr++, yPtr, background);
+                        this->SetPixel(xPtr++, yPtr, background);
                     }
                 }
             }
+            xPtr = x;
             yPtr++;
         }
     }
@@ -578,7 +579,8 @@ const Glyph ChevronUp = Glyph{{0x00,0x00,0x18,0x3c,0x7e,0x66,0xe7,0xc3,0x00,0x00
 const Glyph ChevronDown = Glyph{{0x00,0x00,0xc3,0xc3,0x66,0x7e,0x3c,0x18,0x00,0x00,0x00,0x00}};
 const Glyph LeftHalfBlock = Glyph{{0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0x00,0x00,0x00,0x00}};
 const Glyph RightHalfBlock = Glyph{{0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x00,0x00,0x00,0x00}};
-
+const Glyph Return = Glyph{{0x00,0x00,0x02,0x12,0x32,0x7e,0x30,0x10,0x00,0x00,0x00,0x00}};
+const Glyph Backspace = Glyph{{0x00,0x3f,0x41,0x95,0x89,0x95,0x41,0x3f,0x00,0x00,0x00,0x00}};
 }
 }
 
@@ -684,7 +686,7 @@ bool Imgui::Button(const std::string &text, const ButtonStyle &style) {
     bool inArea = false; // No input checking if we have no input
     bool isPressed = false;
     if (input != NULL) {
-        Touchpad pad = input->GetTouchpad();
+        Touchpad& pad = input->GetTouchpad();
         inArea = pad.X >= rectBeginX && pad.X <= rectEndX && pad.Y >= rectBeginY && pad.Y <= rectEndY;
         isPressed = pad.IsJustPressed() && inArea;
     }
@@ -948,7 +950,7 @@ bool starts_with(const std::string &str, const std::string &prefix) {
     return str.compare(0, prefix.size(), prefix) == 0;
 }
 
-const std::string& Imgui::GetDir() {
+const std::string& Imgui::FileBrowser::GetDir() {
     return this->current_dir;
 }
 
