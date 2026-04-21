@@ -130,6 +130,10 @@ public:
         display.Flush(displays);
     }
 
+    ConsoleDisplayBuffer& GetDisplay() {
+        return display;
+    }
+
     void ResetState() {
         this->Reset();
         display.Clear();
@@ -341,6 +345,7 @@ public:
         if (input.JustPressed(KeyCodes::A)) {
             std::string line = input.Prompt("LISP Expression");
             StringStream stream(line);
+            ConsoleDisplayBuffer& display = runtime.GetDisplay();
             display.Write('>'); display.Write(' '); display.Writeln(line);
 
             runtime.ParseAndRun(stream);
