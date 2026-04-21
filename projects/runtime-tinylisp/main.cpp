@@ -239,6 +239,7 @@ public:
 
             case AppState::Repl:
                 if (state_changed) {
+                runtime.ResetState();
                 Console::Clear();
                 Console::Println("REPL");
                 Console::Println("");
@@ -341,6 +342,7 @@ public:
             std::string line = input.Prompt("LISP Expression");
             StringStream stream(line);
             display.Write('>'); display.Write(' '); display.Writeln(line);
+
             runtime.ParseAndRun(stream);
         }
 
