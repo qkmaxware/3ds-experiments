@@ -152,9 +152,6 @@ public:
 
         this->state = LispRuntimeState::ProgramRunning;
         for (LispRef expr : exprs) {
-            std::string line = this->Stringify(expr);
-            display.Write('>'); display.Write(' '); display.Writeln(line);
-
             LispRef result = this->Eval(expr);
             std::string output = this->Stringify(result);
             display.Writeln(output);
@@ -343,6 +340,7 @@ public:
         if (input.JustPressed(KeyCodes::A)) {
             std::string line = input.Prompt("LISP Expression");
             StringStream stream(line);
+            display.Write('>'); display.Write(' '); display.Writeln(line);
             runtime.ParseAndRun(stream);
         }
 
