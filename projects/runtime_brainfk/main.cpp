@@ -274,6 +274,7 @@ public:
     Runtime(): state(AppState::Browse), script_path(), fb(), interpreter() { }
 
     void setup() override {
+        EnableBottomConsole();
         fb.SetDir("/");
         Console::Println("Press SELECT to enter interactive mode");
         Console::Println("Press START to quit");

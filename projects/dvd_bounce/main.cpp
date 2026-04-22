@@ -20,6 +20,7 @@ public:
     int height = 20;
 
     void setup() override {
+        EnableBottomConsole();
         Console::Println("Press START to quit");
 
         // Load resources

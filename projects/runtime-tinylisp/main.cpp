@@ -186,7 +186,7 @@ enum AppState {
 
 class Interpreter: public CitrusApp {
 private:
-    AppState lastAppState;
+    bool state_changed;
     AppState state;
     int menu_item ;
     std::string script_path;
@@ -194,19 +194,18 @@ private:
     LispRuntime3ds runtime;
 
 public:
-    Interpreter(): lastAppState(AppState::None), state(AppState::Menu), menu_item(0), script_path(), fb(), runtime() {}
+    Interpreter(): state_changed(true), state(AppState::Menu), menu_item(0), script_path(), fb(), runtime() {}
 
     void setup() {
+        EnableBottomConsole();
         fb.SetDir("/");
     }
 
     void loop(Displays &displays, Input &input) override { 
-        bool state_changed = lastAppState == state;
-
         switch (state) {
             case AppState::None:
                 state = AppState::Menu;
-                lastAppState = AppState::Menu;
+                state_changed = true;
                 break;
             case AppState::Menu:
                 if (state_changed) {
@@ -214,6 +213,7 @@ public:
                 Console::Println("Select an option");
                 Console::Println("");
                 Console::Println("Press START to quit");
+                state_changed = false;
                 }
                 menu(displays, input); 
                 break;
@@ -225,6 +225,7 @@ public:
                 Console::Println("");
                 Console::Println("Press B to return to the menu");
                 Console::Println("Press START to quit");
+                state_changed = false;
                 }
                 browse(displays, input); 
                 break;
@@ -237,6 +238,7 @@ public:
                 Console::Println("");
                 Console::Println("Press B to return to the menu");
                 Console::Println("Press START to quit");
+                state_changed = false;
                 }
                 run_file(displays, input); 
                 break;
@@ -250,12 +252,11 @@ public:
                 Console::Println("Press A to enter an expression");
                 Console::Println("Press B to return to the menu");
                 Console::Println("Press START to quit");
+                state_changed = false;
                 }
                 repl(displays, input); 
                 break;
         }
-
-        lastAppState = state;
     }
 
     void menu(Displays &displays, Input &input) {
@@ -279,9 +280,11 @@ public:
             switch (menu_item) {
                 case 1:
                     state = AppState::Browse; 
+                    state_changed = true;
                     break;
                 case 2:
                     state = AppState::Repl; 
+                    state_changed = true;
                     break;
             }
         }
@@ -303,6 +306,7 @@ public:
 
         if (input.JustPressed(KeyCodes::B)) {
             this->state = AppState::Menu;
+            state_changed = true;
             return;
         }
 
@@ -318,6 +322,7 @@ public:
                 // Load the script and init the interpreter
                 runtime.ResetState();
                 this->state = AppState::File;
+                state_changed = true;
             }
         }
     }
@@ -334,6 +339,7 @@ public:
 
         if (input.JustPressed(KeyCodes::B)) {
             this->state = AppState::Menu;
+            state_changed = true;
         }
     }
 
@@ -354,6 +360,7 @@ public:
         if (input.JustPressed(KeyCodes::B)) {
             runtime.ResetState();
             this->state = AppState::Menu;
+            state_changed = true;
         }
     }
 

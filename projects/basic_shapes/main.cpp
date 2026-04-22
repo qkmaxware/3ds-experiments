@@ -3,6 +3,7 @@
 class Shapes: public CitrusApp {
 public:
     void setup() override {
+        EnableBottomConsole();
         Console::Println("Press START to quit");
     }
 

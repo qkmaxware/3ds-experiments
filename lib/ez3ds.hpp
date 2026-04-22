@@ -448,6 +448,7 @@ public:
     virtual void loop(Displays &displays, Input &input) = 0;
     virtual void cleanup() = 0;
 
+    void EnableBottomConsole();
 };
 
 /// @brief A CitrusApp that uses sub-apps to represent diffent states where the app can transition from one sub-app to another.

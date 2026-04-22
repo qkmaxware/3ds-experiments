@@ -642,8 +642,9 @@ private:
         }
 
         // Allocate from free list
-        if (freeSpace == 0)
+        if (freeSpace == 0) {
             return false;
+        }
 
         std::vector<MemoryCell>::size_type free_index = HeapFreeList.back(); HeapFreeList.pop_back();
         MemoryCell &cell = Heap[free_index];
@@ -731,7 +732,7 @@ public:
     LispRuntime(std::vector<MemoryCell>::size_type heap_size): Symbols(), Heap(heap_size), HeapFreeList(heap_size), rootset(), allocatedSinceLastGC(0), currentGcThreshold(initialGcThreshold) {
         // Generate the free list 
         for (unsigned int i = 0; i < heap_size; ++i) {
-            HeapFreeList[i] = i;
+            HeapFreeList[i] = heap_size - 1 - i;
         }
 
         // Pre-allocate some "special" values in the pool... maybe (that would allow Eval to always return a LispRef)

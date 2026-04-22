@@ -3,6 +3,7 @@
 class HelloWorld: public CitrusApp {
 public:
     void setup() override {
+        EnableBottomConsole();
         Console::Println("Hello World!");
         Console::Println("Press START to quit");
     }

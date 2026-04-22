@@ -732,12 +732,11 @@ void CitrusApp::Run() {
     // Initialize services
 	gfxInitDefault();
     gfxSet3D (false);
+    gfxSetDoubleBuffering(GFX_TOP, true);
+    gfxSetDoubleBuffering(GFX_BOTTOM, true);
     fsInit();
     romfsInit();
 
-    // Initialize console on bottom screen. Using NULL as the second argument tells the console library to use the internal console structure as current one
-	consoleInit(GFX_BOTTOM, NULL);
- 
     // User custom initialization
     this->setup();
     
@@ -786,6 +785,11 @@ void CitrusApp::Run() {
     romfsExit();
     fsExit();
 	gfxExit();
+}
+
+void CitrusApp::EnableBottomConsole() {
+    // Initialize console on bottom screen. Using NULL as the second argument tells the console library to use the internal console structure as current one
+	consoleInit(GFX_BOTTOM, NULL);
 }
 
 MultiStateCitrusApp::MultiStateCitrusApp(MultiStateCitrusApp::StateId defaultState): CitrusApp(), hasEnteredCurrentState(false), currentStateId(defaultState) {}

@@ -17,6 +17,7 @@ public:
     Explorer(): fb(), page_size(-1), page_count(-1), page_index(-1), error(false), current_dir() {}
 
     void setup() override {
+        EnableBottomConsole();
         fb.SetDir("/");
     } 
 
