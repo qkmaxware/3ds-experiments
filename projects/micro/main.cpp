@@ -23,6 +23,11 @@ public:
         editor.oneTimeSetup();
     }
 
+    void loop(Displays &displays, Input &input) override {
+        Keypad pad;
+        pad.Repaint(displays, input);
+    }
+
     CitrusApp& GetState(MultiStateCitrusApp::StateId id) override {
         // Map stateid to an actual sub-app state
         switch (static_cast<AppState>(id)) {
