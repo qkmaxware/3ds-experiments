@@ -27,7 +27,6 @@ public:
     }
 
     void loop(Displays &displays, Input &input) override { 
-        DidSelect = false;
         // Clear the upper screen
         displays.Upper.Clear();
 

@@ -36,7 +36,7 @@ bool Document::TryOpen(const std::string &path) {
 
     // Read the document into the buffer
     Buffers.original.resize(size);
-    fread(Buffers.original.data(), 1, size, f);
+    fread(&Buffers.original[0], 1, size, f);
     fclose(f);
 
     // Clear the add buffer
@@ -88,7 +88,7 @@ bool Document::IsModified() const {
     return WasEdited;
 }
 
-std::string Document::GetSubstring(size_t start, size_t length) const {
+std::string Document::GetSubstring(size_t start, size_t length) {
     std::string result;
     char buffer[4096];
     

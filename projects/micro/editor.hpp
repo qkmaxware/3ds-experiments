@@ -28,19 +28,20 @@ private:
     const int COLUMN_WIDTH              = 32;
 
     const Colour alpha                  = Colour::Transparent();
+    const Colour headerColour           = Colour::FromRgb(54,57,62);
     const Imgui::ButtonStyle styleButtonNormal = Imgui::ButtonStyle(
         // Normal
         Colour::White(), Colour::FromRgb(66,69,73), Colour::FromRgb(66,69,73),
         // Pressed
-        Colour::White(), Colour::FromRgb(40,43,48), Colour::FromRgb(40,43,48),
+        Colour::White(), Colour::FromRgb(40,43,48), Colour::FromRgb(40,43,48)
     );
-    const Imgui::ButtonStyle styleButtonDark = Imgui::ButtonStyle (
+    const Imgui::ButtonStyle styleButtonDark = Imgui::ButtonStyle(
         // Normal
         Colour::White(), Colour::FromRgb(66,69,73), Colour::FromRgb(66,69,73),
         // Pressed
         Colour::White(), Colour::FromRgb(53, 118, 240), Colour::FromRgb(53, 118, 240)
     ); 
-    const Imgui::ButtonStyle styleButtonDarkToggled = Imgui::ButtonStyle (
+    const Imgui::ButtonStyle styleButtonDarkToggled = Imgui::ButtonStyle(
         // Normal
         Colour::White(), Colour::FromRgb(53, 118, 240), Colour::FromRgb(53, 118, 240),
         // Pressed
@@ -142,12 +143,13 @@ protected:
         const int PADDING = 2;
         const int GLYPH_SCALE = 2;
 
+        int x = col * COLUMN_WIDTH + offset;
+        int y = VERT_OFFSET + row * ROW_HEIGHT;
+
         const Touchpad &pad = input.GetTouchpad();
         bool isPressed = pad.IsTouchInRect(x, y, COLUMN_WIDTH * colspan, ROW_HEIGHT);
 
-        int x = col * COLUMN_WIDTH + offset;
-        int y = VERT_OFFSET + row * ROW_HEIGHT;
-        screen.FillRect(x + PADDING, y + PADDING, COLUMN_WIDTH * colspan - 2 * PADDING, ROW_HEIGHT - 2 * PADDING, isPressed ? style.HoverBorderColour : .NormalBorderColour, isPressed ? style.HoverBackgroundColour : style.NormalBackgroundColour);
+        screen.FillRect(x + PADDING, y + PADDING, COLUMN_WIDTH * colspan - 2 * PADDING, ROW_HEIGHT - 2 * PADDING, isPressed ? style.HoverBorderColour : style.NormalBorderColour, isPressed ? style.HoverBackgroundColour : style.NormalBackgroundColour);
         int gx = x + ((COLUMN_WIDTH * colspan) >> 1) - ((Typeface::Width * GLYPH_SCALE) >> 1);
         int gy = y + (ROW_HEIGHT >> 1) - (Typeface::Height >> 1);
         screen.StampGlyph(glyph, gx, gy, GLYPH_SCALE, isPressed ? style.HoverFontColour : style.NormalFontColour, alpha);
@@ -186,8 +188,16 @@ public:
             return line < other.line || (line == other.line && column < other.column);
         }
 
+        bool operator>(const Position& other) const {
+            return line > other.line || (line == other.line && column > other.column);
+        }
+
         bool operator<=(const Position& other) const {
             return *this < other || *this == other;
+        }
+
+        bool operator>=(const Position& other) const {
+            return *this > other || *this == other;
         }
     };
 
@@ -459,12 +469,10 @@ public:
     /// @brief Render the viewport to the screen
     void Render(Screen& screen) {
         screen.Clear();
-        Imgui im(screen);
+        size_t y = 0;
 
         for (unsigned int display_line = 0; display_line < VIEWPORT_LINES; display_line++) {
             size_t doc_line = scroll_offset_line + display_line;
-
-            im.BeginRow();
 
             // Check if this line is within the document
             if (doc_line < GetLineCount()) {
@@ -486,30 +494,31 @@ public:
                     bool is_selected = IsPositionInSelection(char_pos);
 
                     uint8_t ch = (col < line.length()) ? static_cast<uint8_t>(line[col]) : 0;
-                    Imgui::LabelStyle style = Imgui::DefaultLabelStyle;
-
+                    Colour foreground = Colour::White();
+                    Colour background = Colour::Transparent();
+                    
                     if (is_selected) {
                         // Highlight selected region
-                        style.BackgroundColour = Colour::FromRgb(53, 118, 240);
-                        style.FontColour = Colour::White();
+                        background = Colour::FromRgb(53, 118, 240);
+                        foreground = Colour::White();
                     }
 
                     if (char_pos == cursor && !is_selected) {
                         // Draw cursor
-                        style.BackgroundColour = Colour::White();
-                        style.FontColour = Colour::Black();
+                        background = Colour::White();
+                        foreground = Colour::Black();
                     }
 
-                    im.Glyph(Typeface::DefaultFont[ch], style);
+                    screen.StampGlyph(Typeface::DefaultFont[ch], col * (Typeface::Width + Typeface::Kerning), y, 1, foreground, background);
                 }
             } else {
                 // Empty lines
                 for (unsigned int col = 0; col < VIEWPORT_COLS; col++) {
-                    im.Glyph(Typeface::DefaultFont[0], Imgui::DefaultLabelStyle);
+                    screen.StampGlyph(Typeface::DefaultFont[0], col * (Typeface::Width + Typeface::Kerning), y, 1, Colour::White(), Colour::Transparent());
                 }
             }
 
-            im.EndRow();
+            y += Typeface::LineHeight;
         }
     }
 
@@ -583,6 +592,23 @@ public:
     }
 
     void loop(Displays &displays, Input &input) override { 
+        // Basic UI
+        bool extend_mode = input.Pressed(KeyCodes::L) || input.Pressed(KeyCodes::R);
+        bool up = input.JustPressed(KeyCodes::DPadUp);
+        bool down = input.JustPressed(KeyCodes::DPadDown);
+        bool left = input.JustPressed(KeyCodes::DPadLeft);
+        bool right = input.JustPressed(KeyCodes::DPadRight);
+
+        if (up) {
+            extend_mode ? viewport.ExtendSelectionUp() : viewport.MoveCursorUp();
+        } else if (down) {
+            extend_mode ? viewport.ExtendSelectionDown() :viewport.MoveCursorDown();
+        } else if (left) {
+            extend_mode ? viewport.ExtendSelectionLeft() :viewport.MoveCursorLeft();
+        } else if(right) {
+            extend_mode ? viewport.ExtendSelectionRight() :viewport.MoveCursorRight();
+        }
+
         // Render document to upper screen
         viewport.Render(displays.Upper);
 

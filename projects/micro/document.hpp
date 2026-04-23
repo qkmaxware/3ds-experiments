@@ -46,7 +46,7 @@ private:
         /// @brief Fetch a buffer by the buffer type
         /// @param type type of buffer
         /// @return reference to the correct buffer
-        inline std::string& get(BufferType type) {
+        inline std::string& get(const BufferType type) {
             return (type == BufferType::Original) ? original : add;
         }
     } Buffers;
@@ -116,7 +116,7 @@ public:
     /// @param start starting index
     /// @param length number of characters to extract
     /// @return the substring, or empty string if invalid range
-    std::string GetSubstring(size_t start, size_t length) const;
+    std::string GetSubstring(size_t start, size_t length);
 
     /// @brief Clear the entire document
     void Clear();
