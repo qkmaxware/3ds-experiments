@@ -695,30 +695,31 @@ public:
         if (a) {
             // Paste or find
             if (!extend_mode) {
-                if (clipboard.size() != 0)
+                if (clipboard.size() != 0) {
                     viewport.InsertText(clipboard);
+                    clipboard.clear();
+                }
             } else {
                 std::string toFind = input.Prompt("Where Is?");
-                // TODO 
+                
             }
         }
         if (b) {
-            // Exit or reload
+            // Backspace or reload
             if (!extend_mode) {
-                State = EditorState::ExitRequested;
-                return;
+                viewport.Backspace();
             } else {
                 // Reload file
                 load_file(current_path);
             }
         }
         if (x) {
-            // Copy or replace
+            // Copy or exit
             if (!extend_mode) {
                 clipboard = viewport.GetSelectedText();
             } else {
-                std::string replacement = input.Prompt("Replace With?");
-                // ...
+                State = EditorState::ExitRequested;
+                return;
             }
         }
         if (y) {
@@ -750,10 +751,10 @@ public:
             lower.StampString("X Copy", (lower.Width >> 1) - Typeface::Width, 0, 1, Colour::Cyan(), Colour::Transparent());
             lower.StampString("Swap Keypad Y", (lower.Width >> 1) - 15*(Typeface::Width + Typeface::Kerning), Typeface::LineHeight - 1, 1, Colour::Green(), Colour::Transparent());
             lower.StampString("A Paste", (lower.Width >> 1) + 1*(Typeface::Width + Typeface::Kerning), Typeface::LineHeight - 1, 1, Colour::Red(), Colour::Transparent());
-            lower.StampString("Exit B", (lower.Width >> 1) - 6*(Typeface::Width + Typeface::Kerning), 2 * Typeface::LineHeight- 2, 1, Colour::Yellow(), Colour::Transparent());
+            lower.StampString("Delete B", (lower.Width >> 1) - 8*(Typeface::Width + Typeface::Kerning), 2 * Typeface::LineHeight- 2, 1, Colour::Yellow(), Colour::Transparent());
         }
         else {
-            lower.StampString("X Replace", (lower.Width >> 1) - Typeface::Width, 0, 1, Colour::Cyan(), Colour::Transparent());
+            lower.StampString("X Exit", (lower.Width >> 1) - Typeface::Width, 0, 1, Colour::Cyan(), Colour::Transparent());
             lower.StampString("Write Out Y", (lower.Width >> 1) - 13*(Typeface::Width + Typeface::Kerning), Typeface::LineHeight - 1, 1, Colour::Green(), Colour::Transparent());
             lower.StampString("A Find", (lower.Width >> 1) + 1*(Typeface::Width + Typeface::Kerning), Typeface::LineHeight - 1, 1, Colour::Red(), Colour::Transparent());
             lower.StampString("Reload B", (lower.Width >> 1) - 8*(Typeface::Width + Typeface::Kerning), 2 * Typeface::LineHeight- 2, 1, Colour::Yellow(), Colour::Transparent());
