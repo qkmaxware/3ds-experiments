@@ -19,6 +19,42 @@ bool Document::FindPieceAt(size_t doc_index, size_t& out_piece_index, size_t& ou
     return false;
 }
 
+size_t Document::FindNext(size_t ptd_start, const std::string &substr) const {
+    if (substr.empty()) {
+        return ptd_start;
+    }
+
+    size_t doc_len = GetLength();
+    if (ptd_start >= doc_len) {
+        return doc_len; // No match, at or past end
+    }
+
+    // Allocate buffer for comparison
+    char read_buffer[512];
+    size_t substr_len = substr.length();
+    size_t search_pos = ptd_start;
+
+    // Search through the document
+    while (search_pos <= doc_len - substr_len) {
+        // Read the potential match
+        size_t read_len = ReadChars(search_pos, read_buffer, substr_len);
+
+        // If we couldn't read enough characters, we've reached end of document
+        if (read_len < substr_len) {
+            return doc_len;
+        }
+
+        // Compare the read characters with the substring
+        if (std::memcmp(read_buffer, substr.c_str(), substr_len) == 0) {
+            return search_pos; // Match found
+        }
+
+        search_pos++;
+    }
+
+    return doc_len; // No match found
+}
+
 bool Document::TryOpen(const std::string &path) {
     // Try to open the file
     FILE *f = fopen(path.c_str(), "rb");

@@ -454,6 +454,41 @@ public:
         EnsureCursorVisible();
     }
 
+    /// @brief Goto a given spot in the text
+    /// @param docIndex index in the document
+    void GotoIndex(size_t docIndex) {
+        // Ensure line cache is valid
+        if (!line_cache_valid) {
+            RebuildLineCache();
+        }
+
+        // Find what line this index falls on
+        size_t line = 0;
+        for (size_t i = 0; i < line_starts.size(); ++i) {
+            if (line_starts[i] <= docIndex) {
+                line = i;  // Track the index
+            } else {
+                break;
+            }
+        }
+
+        // Find where on the line the index falls
+        if (line >= line_starts.size())
+            return;
+
+        size_t col = docIndex - line_starts[line];
+        size_t line_len = GetLineLength(line);
+        if (col > line_len) {
+            return;
+        }
+
+        // Valid index, jump
+        cursor.line = line;
+        cursor.column = col;
+        selection_start = selection_end = cursor;
+        EnsureCursorVisible();
+    }
+
     /// @brief Get selected text (if any)
     std::string GetSelectedText() {
         Position start = (selection_start < selection_end) ? selection_start : selection_end;
@@ -701,7 +736,8 @@ public:
                 }
             } else {
                 std::string toFind = input.Prompt("Where Is?");
-                
+                size_t found_loc = document.FindNext(0, toFind);
+                viewport.GotoIndex(found_loc);
             }
         }
         if (b) {
