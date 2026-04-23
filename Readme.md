@@ -20,11 +20,24 @@ To run projects on real hardware you must first have a 3DS console capable of ru
     - [compose.yml](#composeyml)
   - [Projects](#projects-1)
     - [Hello World (id: hello-world)](#hello-world-id-hello-world)
+      - [Screenshots](#screenshots)
     - [Basic Shapes (id: basic-shapes)](#basic-shapes-id-basic-shapes)
+      - [Screenshots](#screenshots-1)
     - [DVD Bounce (id: dvd-bounce)](#dvd-bounce-id-dvd-bounce)
+      - [Screenshots](#screenshots-2)
     - [Explorer (id: explorer)](#explorer-id-explorer)
+      - [Screenshots](#screenshots-3)
     - [BrainF\*\*k Runtime (id: runtime-bf)](#brainfk-runtime-id-runtime-bf)
+      - [Language Specification](#language-specification)
+      - [Example Scripts](#example-scripts)
+      - [Screenshots](#screenshots-4)
     - [Tiny LISP Runtime (id: runtime-lisp)](#tiny-lisp-runtime-id-runtime-lisp)
+      - [Language Specification](#language-specification-1)
+      - [Example Scripts](#example-scripts-1)
+      - [Screenshots](#screenshots-5)
+    - [Micro Text Editor (id: micro)](#micro-text-editor-id-micro)
+      - [Controls](#controls)
+      - [Screenshots](#screenshots-6)
 
 
 ## Files & Directories
@@ -187,4 +200,39 @@ The following symbols represent built-in functions which should be complete enou
 #### Screenshots
 <div align="center">
 <img src="projects/runtime-tinylisp/screenshot.png">
+</div>
+
+### Micro Text Editor (id: micro)
+A easy to use and feature rich (at least for me) text editor for the 3ds. It supports browsing for files on the SD card, opening, editing, saving, searching, copying, pasting etc. It is designed for right-handed usage where you hold the console with your left hand (thumb on the d-pad) and then hold the stylus with your right. 
+
+#### Controls
+In file browser:
+| Control | Action |
+|---------|-------:|
+| D Pad | Navigate between files and folders |
+| A | Enter a directory or open a file for editing |
+| B | Go up a directory |
+| Start | Exit application |
+
+In text editor:
+| Control | Action |
+|---------|-------:|
+| D Pad   | Navigate the file |
+| L/R + D Pad | Select multiple characters |
+| Touchscreen | Type characters |
+| A | Paste a copied section of text |
+| L/R + A | Find a string in the document |
+| B | Delete a character |
+| L/R + B | Reload whole file (discards changes) |
+| X | Copy a selection of text to clipboard |
+| L/R + X | Exit to file browser (discards changes) |
+| Y | Switch between qwerty keypad and symbolic keypad |
+| L/R + Y | Save edits from buffer to file |
+| Start | Exit application (discards changes) |
+
+
+#### Screenshots
+<div align="center">
+<img src="projects/micro/screenshot.1.png">
+<img src="projects/micro/screenshot.2.png">
 </div>
