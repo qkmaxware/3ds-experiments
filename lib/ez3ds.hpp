@@ -282,6 +282,7 @@ public:
     /// @param foreground colour to use for foreground
     /// @param background colour to use for background
     void StampGlyph(const Typeface::Glyph& glyph, int x, int y, int scale, Colour foreground, Colour background);
+    void StampString(const std::string& text, int x, int y, int scale, Colour foreground, Colour background);
     /// @brief Stamp a texture onto the screen at the given x,y coordinates
     /// @param x top left corner to start drawing at
     /// @param y top left corner to start drawing at
@@ -464,6 +465,7 @@ public:
 
     MultiStateCitrusApp(StateId defaultState);
 
+    virtual void before_loop(Displays &displays, Input &input) = 0;
     void loop(Displays &displays, Input &input) override;
     virtual CitrusApp& GetState(StateId id) = 0;
     virtual StateId NextState(StateId currentId, CitrusApp &currentState) = 0;

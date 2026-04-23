@@ -27,9 +27,6 @@ public:
     }
 
     void loop(Displays &displays, Input &input) override { 
-        // Clear the upper screen
-        displays.Upper.Clear();
-
         // Browse
         if (fb.SelectFile(displays.Upper, input)) {
             State = BrowseState::SelectedFile;

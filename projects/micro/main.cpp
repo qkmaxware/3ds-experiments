@@ -29,6 +29,11 @@ public:
         pad.Repaint(displays, input);
     }*/
 
+    void before_loop(Displays &displays, Input &input) override {
+        displays.Upper.Clear();
+        displays.Lower.Clear();
+    }
+
     CitrusApp& GetState(MultiStateCitrusApp::StateId id) override {
         // Map stateid to an actual sub-app state
         switch (static_cast<AppState>(id)) {

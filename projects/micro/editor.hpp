@@ -18,10 +18,15 @@ struct KeyEvent {
     }
 };
 
+enum class KeyboardMode {
+    Alpha,
+    Symbolic
+};
+
 class Keypad {
 public:
     using Callback = std::function<void(KeyEvent)>;
-
+    KeyboardMode Mode;
 private:
     const int ROW_HEIGHT                = 40;
     const int MAX_BUTTONS_PER_LINE      = 10;
@@ -37,7 +42,7 @@ private:
     );
     const Imgui::ButtonStyle styleButtonDark = Imgui::ButtonStyle(
         // Normal
-        Colour::White(), Colour::FromRgb(66,69,73), Colour::FromRgb(66,69,73),
+        Colour::White(), Colour::FromRgb(40, 43, 48), Colour::FromRgb(40, 43, 48),
         // Pressed
         Colour::White(), Colour::FromRgb(53, 118, 240), Colour::FromRgb(53, 118, 240)
     ); 
@@ -45,7 +50,7 @@ private:
         // Normal
         Colour::White(), Colour::FromRgb(53, 118, 240), Colour::FromRgb(53, 118, 240),
         // Pressed
-        Colour::White(), Colour::FromRgb(66,69,73), Colour::FromRgb(66,69,73)
+        Colour::White(), Colour::FromRgb(40, 43, 48), Colour::FromRgb(40, 43, 48)
     ); 
 
     bool caps;
@@ -53,14 +58,13 @@ private:
     Callback callback;
 
 public:
-    Keypad(Callback callback = nullptr): caps(false), callback(callback)
+    Keypad(Callback callback = nullptr): Mode(KeyboardMode::Alpha), caps(false), callback(callback)
     {
 
     }
 
     void Repaint(Displays &displays, Input &input) {
         Screen &screen = displays.Lower;
-        screen.Clear();
 
         RepaintHeader(screen, input);
         RepaintKeys(screen, input);
@@ -72,8 +76,69 @@ protected:
     }
 
     void RepaintKeys(Screen &screen, Input &input) {
-        // TODO different keyboard for different character sets
-        RepaintKeysAlpha(screen, input);
+        if (Mode == KeyboardMode::Alpha) {
+            RepaintKeysAlpha(screen, input);
+        } 
+        else if (Mode == KeyboardMode::Symbolic) {
+            RepaintKeysSymbol(screen, input);
+        }
+    }
+
+    void RepaintKeysSymbol(Screen &screen, Input &input) {
+        // Row 1
+        DispatchIfPressed(DrawKey(screen, input, '1', 0, 0), KeyEvent('1', false));
+        DispatchIfPressed(DrawKey(screen, input, '2', 0, 1), KeyEvent('2', false));
+        DispatchIfPressed(DrawKey(screen, input, '3', 0, 2), KeyEvent('3', false));
+        DispatchIfPressed(DrawKey(screen, input, '4', 0, 3), KeyEvent('4', false));
+        DispatchIfPressed(DrawKey(screen, input, '5', 0, 4), KeyEvent('5', false));
+        DispatchIfPressed(DrawKey(screen, input, '6', 0, 5), KeyEvent('6', false));
+        DispatchIfPressed(DrawKey(screen, input, '7', 0, 6), KeyEvent('7', false));
+        DispatchIfPressed(DrawKey(screen, input, '8', 0, 7), KeyEvent('8', false));
+        DispatchIfPressed(DrawKey(screen, input, '9', 0, 8), KeyEvent('9', false));
+        DispatchIfPressed(DrawKey(screen, input, '0', 0, 9), KeyEvent('0', false));
+
+        // Row 2
+        DispatchIfPressed(DrawKey(screen, input, '+', 1, 0), KeyEvent('+', false));
+        DispatchIfPressed(DrawKey(screen, input, '@', 1, 1), KeyEvent(' ', false));
+        DispatchIfPressed(DrawKey(screen, input, '|', 1, 2), KeyEvent(' ', false));
+        DispatchIfPressed(DrawKey(screen, input, '=', 1, 3), KeyEvent('=', false));
+        DispatchIfPressed(DrawKey(screen, input, '/', 1, 4), KeyEvent('/', false));
+        DispatchIfPressed(DrawKey(screen, input, '_', 1, 5), KeyEvent('_', false));
+        DispatchIfPressed(DrawKey(screen, input, '<', 1, 6), KeyEvent('<', false));
+        DispatchIfPressed(DrawKey(screen, input, '>', 1, 7), KeyEvent('>', false));
+        DispatchIfPressed(DrawKey(screen, input, '[', 1, 8), KeyEvent('[', false));
+        DispatchIfPressed(DrawKey(screen, input, ']', 1, 9), KeyEvent(']', false));
+
+        // Row 3
+        DispatchIfPressed(DrawKey(screen, input, '!', 2, 0), KeyEvent('!', false));
+        DispatchIfPressed(DrawKey(screen, input, '@', 2, 1), KeyEvent('@', false));
+        DispatchIfPressed(DrawKey(screen, input, '#', 2, 2), KeyEvent('#', false));
+        DispatchIfPressed(DrawKey(screen, input, '$', 2, 3), KeyEvent('$', false));
+        DispatchIfPressed(DrawKey(screen, input, '%', 2, 4), KeyEvent('%', false));
+        DispatchIfPressed(DrawKey(screen, input, '^', 2, 5), KeyEvent('^', false));
+        DispatchIfPressed(DrawKey(screen, input, '&', 2, 6), KeyEvent('&', false));
+        DispatchIfPressed(DrawKey(screen, input, '*', 2, 7), KeyEvent('*', false));
+        DispatchIfPressed(DrawKey(screen, input, '(', 2, 8), KeyEvent('(', false));
+        DispatchIfPressed(DrawKey(screen, input, ')', 2, 9), KeyEvent(')', false));
+
+        // Row 4
+        //if (DrawKey(screen, input, Typeface::SpecialGlyphs::ChevronUp, 3, 0, 16, 1, caps ? styleButtonDarkToggled : styleButtonDark)) {caps = !caps;}
+        DispatchIfPressed(DrawKey(screen, input, '-',  3, 0, 16 + 32), KeyEvent('-', false));
+        DispatchIfPressed(DrawKey(screen, input, '\'', 3, 1, 16 + 32), KeyEvent('\'', false));
+        DispatchIfPressed(DrawKey(screen, input, '\"', 3, 2, 16 + 32), KeyEvent('\"', false));
+        DispatchIfPressed(DrawKey(screen, input, ':',  3, 3, 16 + 32), KeyEvent(':', false));
+        DispatchIfPressed(DrawKey(screen, input, ';',  3, 4, 16 + 32), KeyEvent(';', false));
+        DispatchIfPressed(DrawKey(screen, input, '`',  3, 5, 16 + 32), KeyEvent(',', false));
+        DispatchIfPressed(DrawKey(screen, input, '?',  3, 6, 16 + 32), KeyEvent('?', false));
+        DispatchIfPressed(DrawKey(screen, input, Typeface::SpecialGlyphs::Backspace, 3, 7, 16 + 32, 1, styleButtonDark), KeyEvent('\b', caps));
+
+        // Row 5
+        if (DrawKey(screen, input, Typeface::DefaultFont['A'], 4, 0, 16, 1, styleButtonDark)) {Mode = KeyboardMode::Alpha;}
+        DispatchIfPressed(DrawKey(screen, input, ',', 4, 0, 16 + 32), KeyEvent(',', caps));
+        DispatchIfPressed(DrawKey(screen, input, ' ', 4, 1, 16 + 32, 5), KeyEvent(' ', caps));
+        DispatchIfPressed(DrawKey(screen, input, '.', 4, 6, 16 + 32), KeyEvent('.', caps));
+        DispatchIfPressed(DrawKey(screen, input, Typeface::SpecialGlyphs::Return, 4, 7, 16 + 32, 1, styleButtonDark), KeyEvent('\n', caps));
+    
     }
 
     void RepaintKeysAlpha(Screen &screen, Input &input) {
@@ -124,6 +189,7 @@ protected:
         DispatchIfPressed(DrawKey(screen, input, Typeface::SpecialGlyphs::Backspace, 3, 7, 16 + 32, 1, styleButtonDark), KeyEvent('\b', caps));
 
         // Row 5
+        if (DrawKey(screen, input, Typeface::DefaultFont['?'], 4, 0, 16, 1, styleButtonDark)) {Mode = KeyboardMode::Symbolic;}
         DispatchIfPressed(DrawKey(screen, input, ',', 4, 0, 16 + 32), KeyEvent(',', caps));
         DispatchIfPressed(DrawKey(screen, input, ' ', 4, 1, 16 + 32, 5), KeyEvent(' ', caps));
         DispatchIfPressed(DrawKey(screen, input, '.', 4, 6, 16 + 32), KeyEvent('.', caps));
@@ -203,7 +269,7 @@ public:
 
 private:
     Document& document;
-    const unsigned int VIEWPORT_LINES = (240 / Typeface::LineHeight);
+    const unsigned int VIEWPORT_LINES = (240 / Typeface::LineHeight) - 1;
     const unsigned int VIEWPORT_COLS = (400 / (Typeface::Width + Typeface::Kerning));
 
     Position cursor;                        ///< Current cursor position
@@ -468,8 +534,7 @@ public:
 
     /// @brief Render the viewport to the screen
     void Render(Screen& screen) {
-        screen.Clear();
-        size_t y = 0;
+        size_t y = Typeface::LineHeight;
 
         for (unsigned int display_line = 0; display_line < VIEWPORT_LINES; display_line++) {
             size_t doc_line = scroll_offset_line + display_line;
@@ -546,6 +611,11 @@ private:
     Document document;
     TextViewport viewport;
     std::string current_path;
+    std::string file_name;
+
+    std::string clipboard;
+
+    const Colour title_colour = Colour::FromRgb(56, 56, 56);
 
 public:
     EditorState State;
@@ -554,6 +624,8 @@ public:
         document(), 
         viewport(document),
         current_path(), 
+        file_name(),
+        clipboard(),
         State(EditorState::Editing) {}
 
     void oneTimeSetup() {
@@ -562,11 +634,14 @@ public:
 
     void setup() override {
         State = EditorState::Editing;
+        keypad.Mode = KeyboardMode::Alpha;
     }
 
     bool load_file(const std::string &path) {
-        current_path = path;
+        clipboard.clear();
         if (document.TryOpen(path)) {
+            current_path = path;
+            file_name = path.substr(path.find_last_of("/\\") + 1);
             viewport.InvalidateLineCache();
             return true;
         }
@@ -578,6 +653,9 @@ public:
             return false;
 
         bool did_save = document.TryOverwrite(current_path);
+        if (did_save) {
+            document.TryOpen(current_path); // Reload file to reset buffers
+        }
         return did_save;
     }
 
@@ -609,11 +687,77 @@ public:
             extend_mode ? viewport.ExtendSelectionRight() :viewport.MoveCursorRight();
         }
 
+        bool a = input.JustPressed(KeyCodes::A);
+        bool b = input.JustPressed(KeyCodes::B);
+        bool x = input.JustPressed(KeyCodes::X);
+        bool y = input.JustPressed(KeyCodes::Y);
+
+        if (a) {
+            // Paste or find
+            if (!extend_mode) {
+                if (clipboard.size() != 0)
+                    viewport.InsertText(clipboard);
+            } else {
+                std::string toFind = input.Prompt("Where Is?");
+                // TODO 
+            }
+        }
+        if (b) {
+            // Exit or reload
+            if (!extend_mode) {
+                State = EditorState::ExitRequested;
+                return;
+            } else {
+                // Reload file
+                load_file(current_path);
+            }
+        }
+        if (x) {
+            // Copy or replace
+            if (!extend_mode) {
+                clipboard = viewport.GetSelectedText();
+            } else {
+                std::string replacement = input.Prompt("Replace With?");
+                // ...
+            }
+        }
+        if (y) {
+            // Switch keyboard or save
+            if (!extend_mode) {
+                keypad.Mode = keypad.Mode == KeyboardMode::Alpha ? KeyboardMode::Symbolic : KeyboardMode::Alpha;
+            } else {
+                save_file();
+            }
+        }
+
         // Render document to upper screen
+        displays.Upper.FillRect(0, 0, displays.Upper.Width, Typeface::LineHeight - 2, title_colour, title_colour);
+        displays.Upper.StampString("Micro ", Typeface::Width, 2, 1, Colour::White(), Colour::Transparent());
+        displays.Upper.StampString(APP_VERSION, Typeface::Width * 7, 2, 1, Colour::White(), Colour::Transparent());
+        displays.Upper.StampString(file_name, (displays.Upper.Width >> 1) - (Typeface::Width + Typeface::Kerning)*(file_name.size() >> 1), 2, 1, Colour::White(), Colour::Transparent());
+        if (document.IsModified()) {
+            displays.Upper.StampString("MODIFIED", displays.Upper.Width - Typeface::Width - 8*(Typeface::Width + Typeface::Kerning) + Typeface::Kerning, 2, 1, Colour::White(), Colour::Transparent());
+        }
         viewport.Render(displays.Upper);
 
         // Render keyboard to lower screen
         keypad.Repaint(displays, input);
+        
+        Screen& lower = displays.Lower;
+        lower.StampString("L ALT", 0, 0, 1, extend_mode ? Colour::Transparent() : Colour::White(), Colour::Transparent());
+        lower.StampString("ALT R", lower.Width - 5*(Typeface::Width + Typeface::Kerning) + Typeface::Kerning, 0, 1, extend_mode ? Colour::Transparent() : Colour::White(), Colour::Transparent());
+        if (!extend_mode) {
+            lower.StampString("X Copy", (lower.Width >> 1) - Typeface::Width, 0, 1, Colour::Cyan(), Colour::Transparent());
+            lower.StampString("Swap Keypad Y", (lower.Width >> 1) - 15*(Typeface::Width + Typeface::Kerning), Typeface::LineHeight - 1, 1, Colour::Green(), Colour::Transparent());
+            lower.StampString("A Paste", (lower.Width >> 1) + 1*(Typeface::Width + Typeface::Kerning), Typeface::LineHeight - 1, 1, Colour::Red(), Colour::Transparent());
+            lower.StampString("Exit B", (lower.Width >> 1) - 6*(Typeface::Width + Typeface::Kerning), 2 * Typeface::LineHeight- 2, 1, Colour::Yellow(), Colour::Transparent());
+        }
+        else {
+            lower.StampString("X Replace", (lower.Width >> 1) - Typeface::Width, 0, 1, Colour::Cyan(), Colour::Transparent());
+            lower.StampString("Write Out Y", (lower.Width >> 1) - 13*(Typeface::Width + Typeface::Kerning), Typeface::LineHeight - 1, 1, Colour::Green(), Colour::Transparent());
+            lower.StampString("A Find", (lower.Width >> 1) + 1*(Typeface::Width + Typeface::Kerning), Typeface::LineHeight - 1, 1, Colour::Red(), Colour::Transparent());
+            lower.StampString("Reload B", (lower.Width >> 1) - 8*(Typeface::Width + Typeface::Kerning), 2 * Typeface::LineHeight- 2, 1, Colour::Yellow(), Colour::Transparent());
+        }
     }
 
     void cleanup() override {
