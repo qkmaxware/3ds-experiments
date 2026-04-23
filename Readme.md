@@ -208,7 +208,7 @@ A easy to use and feature rich (at least for me) text editor for the 3ds. It sup
 #### Controls
 In file browser:
 | Control | Action |
-|---------|-------:|
+|---------|:-------|
 | D Pad | Navigate between files and folders |
 | A | Enter a directory or open a file for editing |
 | B | Go up a directory |
@@ -216,7 +216,7 @@ In file browser:
 
 In text editor:
 | Control | Action |
-|---------|-------:|
+|---------|:-------|
 | D Pad   | Navigate the file |
 | L/R + D Pad | Select multiple characters |
 | Touchscreen | Type characters |

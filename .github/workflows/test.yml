@@ -8,7 +8,7 @@ jobs:
 
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
       - name: Setup Podman
         uses: redhat-actions/podman-install@main
       - name: Start Podman Socket
@@ -18,4 +18,4 @@ jobs:
       - name: Setup Podman Compose
         uses: webgtx/setup-podman-compose@v1
       - name: Build Projects
-        run: podman compose -f compose.yml run --build --rm all
+        run: podman compose -f compose.yml run --build --rm all & sleep 2
