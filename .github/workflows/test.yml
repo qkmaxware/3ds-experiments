@@ -14,7 +14,7 @@ jobs:
       - name: Start Podman Socket
         run: |
           podman system service --time=0 &
-          sleep 2
+          timeout 30 bash -c 'until podman info > /dev/null 2>&1; do sleep 0.5; done'
       - name: Setup Podman Compose
         uses: webgtx/setup-podman-compose@v1
       - name: Build Projects
