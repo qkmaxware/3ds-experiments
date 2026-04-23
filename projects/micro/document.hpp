@@ -64,7 +64,7 @@ public:
     /// @param ptd_start start index in the document to begin the search
     /// @param substr the substring to find
     /// @return index to the beginning of the substring or to the end of the file if no occurrence found
-    size_t FindNext(size_t ptd_start, const std::string &substr) const
+    size_t FindNext(size_t ptd_start, const std::string &substr);
 
     /// @brief Try to open a text document at the given file path
     /// @param path file path to document

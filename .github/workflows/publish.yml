@@ -1,0 +1,28 @@
+---
+name: Publish Build
+on:
+  release: 
+    types: [ published, edited ]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v3
+      - name: Setup Podman Compose
+        uses: webgtx/setup-podman-compose@v1
+      - name: Build Projects
+        run: podman compose -f compose.yml run --build --rm all
+      - name: Upload Binaries to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: bin/*.3dsx
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true

@@ -19,7 +19,7 @@ bool Document::FindPieceAt(size_t doc_index, size_t& out_piece_index, size_t& ou
     return false;
 }
 
-size_t Document::FindNext(size_t ptd_start, const std::string &substr) const {
+size_t Document::FindNext(size_t ptd_start, const std::string &substr) {
     if (substr.empty()) {
         return ptd_start;
     }
