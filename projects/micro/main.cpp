@@ -13,7 +13,7 @@ private:
     Editor editor;
 
 public:
-    App(): MultiStateCitrusApp(static_cast<MultiStateCitrusApp::StateId>(AppState::TextEditor)), browse(), editor() {
+    App(): MultiStateCitrusApp(static_cast<MultiStateCitrusApp::StateId>(AppState::FileBrowser)), browse(), editor() {
 
     }
 
@@ -45,6 +45,18 @@ public:
     MultiStateCitrusApp::StateId NextState(MultiStateCitrusApp::StateId currentId, CitrusApp &currentState) override {
         // Handle state transitions
         switch (static_cast<AppState>(currentId)) {
+            case AppState::FileBrowser: {
+                bool did_select = browse.State == BrowseState::SelectedFile;
+                if (did_select) {
+                    // Init the text-editor on transition
+                    editor.load_file(browse.GetSelectedFile());
+                }
+                return did_select ? static_cast<MultiStateCitrusApp::StateId>(AppState::TextEditor) : currentId;
+            } break;
+            case AppState::TextEditor: {
+                bool exit_requested = editor.State == EditorState::ExitRequested;
+                return exit_requested ? static_cast<MultiStateCitrusApp::StateId>(AppState::FileBrowser) : currentId;
+            } break;
             default:
                 return currentId;
         }
