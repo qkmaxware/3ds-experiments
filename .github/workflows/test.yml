@@ -17,5 +17,7 @@ jobs:
           timeout 30 bash -c 'until podman info > /dev/null 2>&1; do sleep 0.5; done'
       - name: Setup Podman Compose
         uses: webgtx/setup-podman-compose@v1
+      - name: Build Compilation Environment
+        run: podman compose -f compose.yml build
       - name: Build Projects
-        run: podman compose -f compose.yml run --build --rm all & sleep 2
+        run: podman compose -f compose.yml run --build --rm all
