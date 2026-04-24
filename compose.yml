@@ -2,7 +2,7 @@ services:
     # This is a pseudo-service which simply tells compose to build all the depends_on projects
     all:
         image: busybox
-        command: ["true"]
+        command: ["sleep", "5"]
         depends_on:
             - hello-world
             - basic-shapes
