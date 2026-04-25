@@ -1,6 +1,7 @@
 #include "../lib/ez3ds.hpp"
 #include "document.hpp"
 #include <functional>
+#include <memory>
 
 #ifndef NANO_EDITOR
 #define NANO_EDITOR
@@ -23,6 +24,30 @@ enum class KeyboardMode {
     Symbolic
 };
 
+const Colour alpha                  = Colour::Transparent();
+const Colour headerColour           = Colour::FromRgb(54,57,62);
+const Imgui::ButtonStyle styleButtonNormal = Imgui::ButtonStyle(
+    // Normal
+    Colour::White(), Colour::FromRgb(66,69,73), Colour::FromRgb(66,69,73),
+    // Pressed
+    Colour::White(), Colour::FromRgb(40,43,48), Colour::FromRgb(40,43,48),
+    Imgui::ButtonFit::Inline
+);
+const Imgui::ButtonStyle styleButtonDark = Imgui::ButtonStyle(
+    // Normal
+    Colour::White(), Colour::FromRgb(40, 43, 48), Colour::FromRgb(40, 43, 48),
+    // Pressed
+    Colour::White(), Colour::FromRgb(53, 118, 240), Colour::FromRgb(53, 118, 240),
+    Imgui::ButtonFit::Inline
+); 
+const Imgui::ButtonStyle styleButtonDarkToggled = Imgui::ButtonStyle(
+    // Normal
+    Colour::White(), Colour::FromRgb(53, 118, 240), Colour::FromRgb(53, 118, 240),
+    // Pressed
+    Colour::White(), Colour::FromRgb(40, 43, 48), Colour::FromRgb(40, 43, 48),
+    Imgui::ButtonFit::Inline
+); 
+
 class Keypad {
 public:
     using Callback = std::function<void(KeyEvent)>;
@@ -31,27 +56,6 @@ private:
     const int ROW_HEIGHT                = 40;
     const int MAX_BUTTONS_PER_LINE      = 10;
     const int COLUMN_WIDTH              = 32;
-
-    const Colour alpha                  = Colour::Transparent();
-    const Colour headerColour           = Colour::FromRgb(54,57,62);
-    const Imgui::ButtonStyle styleButtonNormal = Imgui::ButtonStyle(
-        // Normal
-        Colour::White(), Colour::FromRgb(66,69,73), Colour::FromRgb(66,69,73),
-        // Pressed
-        Colour::White(), Colour::FromRgb(40,43,48), Colour::FromRgb(40,43,48)
-    );
-    const Imgui::ButtonStyle styleButtonDark = Imgui::ButtonStyle(
-        // Normal
-        Colour::White(), Colour::FromRgb(40, 43, 48), Colour::FromRgb(40, 43, 48),
-        // Pressed
-        Colour::White(), Colour::FromRgb(53, 118, 240), Colour::FromRgb(53, 118, 240)
-    ); 
-    const Imgui::ButtonStyle styleButtonDarkToggled = Imgui::ButtonStyle(
-        // Normal
-        Colour::White(), Colour::FromRgb(53, 118, 240), Colour::FromRgb(53, 118, 240),
-        // Pressed
-        Colour::White(), Colour::FromRgb(40, 43, 48), Colour::FromRgb(40, 43, 48)
-    ); 
 
     bool caps;
 
@@ -640,17 +644,101 @@ public:
     }
 };
 
+enum class ToolExecution {
+    Continue,
+    Break
+};
+
+class IEditorTool {
+public:
+    virtual const std::string& name() = 0;
+    virtual void init(TextViewport &viewport, Document &doc, Input &input) = 0;
+    virtual ToolExecution loop(Screen& screen, TextViewport &viewport, Document &doc, Input &input) = 0;
+};
+
+class FindTool: public IEditorTool {
+private:
+    const std::string tool_name = "Find";
+    std::string search_term;
+    size_t search_offset;
+    size_t doc_length;
+
+public:
+    FindTool(): search_term(), search_offset(0) {}
+
+    const std::string& name() override {
+        return tool_name;
+    };
+
+    void init(TextViewport &viewport, Document &doc, Input &input) override {
+        search_offset = 0;
+        doc_length = doc.GetLength();
+
+        search_term = input.Prompt("Where Is?");
+        size_t found_loc = doc.FindNext(search_offset, search_term);
+        viewport.GotoIndex(found_loc);
+        search_offset = found_loc + 1;
+    }
+
+    ToolExecution loop(Screen& screen, TextViewport &viewport, Document &doc, Input &input) {
+        Imgui im(screen, &input);
+        im.CenterY();
+        
+        if (im.Button("(A) Next Occurence", Imgui::DefaultButtonStyle) || input.JustPressed(KeyCodes::A)) {
+            size_t found_loc = doc.FindNext(search_offset, search_term);
+            viewport.GotoIndex(found_loc);
+            search_offset = found_loc + 1;
+        }
+
+        im.NextLine();
+
+        bool closed = im.Button("(B) Exit", Imgui::DefaultButtonStyle) || input.JustPressed(KeyCodes::B);
+
+        bool at_end = search_offset >= doc_length;
+
+        return closed || at_end ? ToolExecution::Break : ToolExecution::Continue;
+    }
+};
+
+template<typename T, typename... Args>
+std::unique_ptr<T> make_unique(Args&&... args)
+{
+    return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+}
+
 class Editor : public CitrusApp {
 private:
     Keypad keypad;
     Document document;
     TextViewport viewport;
+    std::vector<std::unique_ptr<IEditorTool>> tools;
+    std::vector<std::unique_ptr<IEditorTool>>::size_type active_tool;
+    bool show_tools;
+    int tool_page;
+    int tool_pages;
     std::string current_path;
     std::string file_name;
 
     std::string clipboard;
 
     const Colour title_colour = Colour::FromRgb(56, 56, 56);
+    const unsigned int TOOL_PAGE_SIZE = 10;
+
+    void activate_tool(size_t tool_index, Input &input) {
+        if (tool_index >= tools.size()) {
+            deactivate_tool();
+            return;
+        }
+
+        active_tool = tool_index + 1;
+        show_tools = false;
+        std::unique_ptr<IEditorTool> &tool = tools[tool_index];
+        tool->init(viewport, document, input);
+    }
+
+    void deactivate_tool() {
+        active_tool = 0;
+    }
 
 public:
     EditorState State;
@@ -658,10 +746,20 @@ public:
         keypad([this](KeyEvent evt) { this->key_press(evt); }), 
         document(), 
         viewport(document),
+        tools(),
+        active_tool(0),
+        show_tools(false),
+        tool_page(0),
+        tool_pages(1),
         current_path(), 
         file_name(),
         clipboard(),
-        State(EditorState::Editing) {}
+        State(EditorState::Editing) {
+            // Add tools here
+            tools.push_back(std::move(make_unique<FindTool>()));
+
+            tool_pages = (tools.size() + (TOOL_PAGE_SIZE - 1)) / TOOL_PAGE_SIZE;
+        }
 
     void oneTimeSetup() {
 
@@ -705,7 +803,127 @@ public:
     }
 
     void loop(Displays &displays, Input &input) override { 
-        // Basic UI
+        // ---------------------------------------------------
+        // ## Render document to upper screen (always)
+        // ---------------------------------------------------
+        displays.Upper.FillRect(0, 0, displays.Upper.Width, Typeface::LineHeight - 2, title_colour, title_colour);
+        displays.Upper.StampString("Micro ", Typeface::Width, 2, 1, Colour::White(), Colour::Transparent());
+        displays.Upper.StampString(APP_VERSION, Typeface::Width * 7, 2, 1, Colour::White(), Colour::Transparent());
+        displays.Upper.StampString(file_name, (displays.Upper.Width >> 1) - (Typeface::Width + Typeface::Kerning)*(file_name.size() >> 1), 2, 1, Colour::White(), Colour::Transparent());
+        if (document.IsModified()) {
+            displays.Upper.StampString("MODIFIED", displays.Upper.Width - Typeface::Width - 8*(Typeface::Width + Typeface::Kerning) + Typeface::Kerning, 2, 1, Colour::White(), Colour::Transparent());
+        }
+        viewport.Render(displays.Upper);
+        
+        // ---------------------------------------------------
+        // Render lower screen (depends on state)
+        // ---------------------------------------------------
+
+        const Touchpad &pad = input.GetTouchpad();
+        bool just_tapped = pad.IsJustPressed();
+        
+        // Render tool if using tool
+        if (active_tool > 0) {
+            std::vector<std::unique_ptr<IEditorTool>>::size_type tool_index = active_tool - 1;
+            std::unique_ptr<IEditorTool>& tool = tools[tool_index];
+            
+            // Render tool header
+            Screen &screen = displays.Lower;
+            screen.FillRect(0, 0, screen.Width, Typeface::LineHeight, headerColour, headerColour);
+            const std::string &tool_name = tool->name();
+            screen.StampString(tool_name, (screen.Width >> 1) - (tool_name.size()>>1)*(Typeface::Width + Typeface::Kerning), 4, 1, Colour::White(), Colour::Transparent());
+
+            // Run tool iteration
+            ToolExecution exec = tool->loop(displays.Lower, viewport, document, input);
+
+            // See if the tool is completed
+            if (exec == ToolExecution::Break) {
+                // Clear active tool
+                deactivate_tool();
+            }
+            return;
+        }
+
+        // Render toolshelf if showing tools
+        if (show_tools) {
+            if (input.JustPressed(KeyCodes::Select)) {
+                show_tools = false;
+                return;
+            }
+
+            // Render header
+            Screen &screen = displays.Lower;
+            screen.FillRect(0, 0, screen.Width, Typeface::LineHeight, headerColour, headerColour);
+            screen.StampString("Toolshelf", (screen.Width >> 1) - 5*(Typeface::Width + Typeface::Kerning), 4, 1, Colour::White(), Colour::Transparent());
+
+            // Render pages
+            if (input.JustPressed(KeyCodes::DPadLeft) && tool_page > 0) {
+                tool_page --;
+            }
+            else if (input.JustPressed(KeyCodes::DPadRight) && tool_page < (tool_pages - 1)) {
+                tool_page++;
+            }
+
+            if (tool_page > 0) {
+                // Show left
+                screen.FillRect(0, 120 - 40, Typeface::Width, 80, styleButtonDark.NormalBackgroundColour, styleButtonDark.NormalBackgroundColour);
+                screen.StampGlyph(Typeface::DefaultFont['<'], 0, 120 - (Typeface::Height>>1), 1, styleButtonNormal.NormalFontColour, alpha);
+                if (just_tapped && pad.IsTouchInRect(0, 120 - 40, Typeface::Width, 80)) {
+                    tool_page--;
+                }
+            }
+            if (tool_page < (tool_pages-1)) {
+                // Show right
+                screen.FillRect(screen.Width - Typeface::Width, 120 - 40, Typeface::Width, 80, styleButtonDark.NormalBackgroundColour, styleButtonDark.NormalBackgroundColour);
+                screen.StampGlyph(Typeface::DefaultFont['>'], screen.Width - Typeface::Width, 120 - (Typeface::Height>>1), 1, styleButtonNormal.NormalFontColour, alpha);
+                if (just_tapped && pad.IsTouchInRect(screen.Width - Typeface::Width, 120 - 40, Typeface::Width, 80)) {
+                    tool_page++;
+                }
+            }
+
+            // Render toollist (grid of 2)
+            int available_space = screen.Width - 5 * (Typeface::Width);
+            int colwidth = available_space >> 1;
+            int halfwidth = colwidth >> 1;
+            const int row_buffer = 8;
+            int row_height = 2 * Typeface::LineHeight;
+            unsigned int offset = TOOL_PAGE_SIZE * tool_page;
+            for (std::vector<std::unique_ptr<IEditorTool>>::size_type tool_index = offset, row = 0, index_in_page = 0; tool_index < tools.size() && index_in_page < TOOL_PAGE_SIZE; tool_index += 2, index_in_page +=2, row += 1) {
+                // First button
+                int x1 = 2*Typeface::Width;
+                int y1 = Typeface::LineHeight + row_buffer + row * (row_buffer + row_height);
+                int x2 = x1 + colwidth;
+                bool isPressed = pad.IsTouchInRect(x1, y1, colwidth, row_height);
+                screen.FillRect(x1, y1, colwidth, row_height, isPressed ? styleButtonNormal.HoverBorderColour : styleButtonNormal.NormalBorderColour, isPressed ? styleButtonNormal.HoverBackgroundColour : styleButtonNormal.NormalBackgroundColour);
+                std::unique_ptr<IEditorTool> &tool = tools[tool_index];
+                const std::string &name = tool->name();
+                screen.StampString(name, x1 + halfwidth - (name.size() >> 1) * (Typeface::Width + Typeface::Kerning), y1 + (Typeface::Height), 1, isPressed ? styleButtonNormal.HoverFontColour : styleButtonNormal.NormalFontColour, alpha);
+                if (isPressed && just_tapped) {
+                    activate_tool(tool_index, input);
+                }
+
+                // Second button
+                if ((tool_index + 1) >= tools.size())
+                    break; // Skip if odd number of tools
+
+                x1 = x2 + Typeface::Width;
+                isPressed = pad.IsTouchInRect(x1, y1, colwidth, row_height);
+                screen.FillRect(x1, y1, colwidth, row_height, isPressed ? styleButtonNormal.HoverBorderColour : styleButtonNormal.NormalBorderColour, isPressed ? styleButtonNormal.HoverBackgroundColour : styleButtonNormal.NormalBackgroundColour);
+                std::unique_ptr<IEditorTool> &tool2 = tools[tool_index + 1];
+                const std::string &name2 = tool2->name();
+                screen.StampString(name2, x1 + halfwidth - (name2.size() >> 1) * (Typeface::Width + Typeface::Kerning), y1 + (Typeface::Height), 1, isPressed ? styleButtonNormal.HoverFontColour : styleButtonNormal.NormalFontColour, alpha);
+                if (isPressed && just_tapped) {
+                    activate_tool(tool_index + 1, input);
+                }
+            }
+            return;
+        }
+        if (input.JustPressed(KeyCodes::Select)) {
+            show_tools = true;
+            return;
+        }
+
+        // Handle input and use keypad if none of above is true
         bool extend_mode = input.Pressed(KeyCodes::L) || input.Pressed(KeyCodes::R);
         bool up = input.JustPressed(KeyCodes::DPadUp);
         bool down = input.JustPressed(KeyCodes::DPadDown);
@@ -766,16 +984,6 @@ public:
                 save_file();
             }
         }
-
-        // Render document to upper screen
-        displays.Upper.FillRect(0, 0, displays.Upper.Width, Typeface::LineHeight - 2, title_colour, title_colour);
-        displays.Upper.StampString("Micro ", Typeface::Width, 2, 1, Colour::White(), Colour::Transparent());
-        displays.Upper.StampString(APP_VERSION, Typeface::Width * 7, 2, 1, Colour::White(), Colour::Transparent());
-        displays.Upper.StampString(file_name, (displays.Upper.Width >> 1) - (Typeface::Width + Typeface::Kerning)*(file_name.size() >> 1), 2, 1, Colour::White(), Colour::Transparent());
-        if (document.IsModified()) {
-            displays.Upper.StampString("MODIFIED", displays.Upper.Width - Typeface::Width - 8*(Typeface::Width + Typeface::Kerning) + Typeface::Kerning, 2, 1, Colour::White(), Colour::Transparent());
-        }
-        viewport.Render(displays.Upper);
 
         // Render keyboard to lower screen
         keypad.Repaint(displays, input);

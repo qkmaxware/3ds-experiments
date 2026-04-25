@@ -608,6 +608,13 @@ int Imgui::WidthCharacters() {
     return this->screen.Width / (Typeface::Width + Typeface::Kerning);
 }
 
+int Imgui::AvailableWidthPixels() {
+    return std::max(this->screen.Width - x, 0);
+}
+int Imgui::AvailableWidthCharacters() {
+    return AvailableWidthPixels() / (Typeface::Width + Typeface::Kerning);
+}
+
 int Imgui::HeightPixels() {
     return this->screen.Height;
 }
@@ -627,6 +634,10 @@ void Imgui::EndRow() {
 void Imgui::NextLine() {
     this->y += Typeface::LineHeight;
     this->x = 0;
+}
+
+void Imgui::CenterY() {
+    this->y = (HeightLines() >> 1) * Typeface::LineHeight;
 }
 
 const Imgui::LabelStyle Imgui::DefaultLabelStyle = Imgui::LabelStyle(Colour::White());
@@ -688,17 +699,25 @@ void Imgui::IndentPixels(int px) {
 }
 
 
-const Imgui::ButtonStyle Imgui::DefaultButtonStyle = Imgui::ButtonStyle(Colour::White(), Colour::Grey(), Colour::DarkGrey(), Colour::White(), Colour::Grey(), Colour::Blue());
+const Imgui::ButtonStyle Imgui::DefaultButtonStyle = Imgui::ButtonStyle(Colour::White(), Colour::Grey(), Colour::DarkGrey(), Colour::White(), Colour::Grey(), Colour::Blue(), ButtonFit::Block);
 bool Imgui::Button(const std::string &text, const ButtonStyle &style) {
     // Draw a rectangle with the text centered inside it (note I'd have to know how big the text is for centering)
     int charCount = text.length();
     int width = 0;
+    int xpadding = 0;
     if (charCount > 0) {
-        width = charCount * Typeface::Width + (charCount - 1) * Typeface::Kerning;
+        int str_width = charCount * Typeface::Width + (charCount - 1) * Typeface::Kerning; 
+        if (style.Fit == ButtonFit::Block) {
+            width = AvailableWidthPixels() - 2;
+        } else {
+            width = str_width + 2 * Typeface::VPad;
+        }
+
+        xpadding = (width - str_width) >> 1;
     }
 
-    int rectBeginX = x, rectWidth = width + 2 * Typeface::VPad, rectEndX = x + width + 2 * Typeface::VPad;
-    int rectBeginY = y, rectHeight = Typeface::LineHeight, rectEndY = y + Typeface::LineHeight;
+    int rectBeginX = x, rectWidth = width, rectEndX = x + width;
+    int rectBeginY = y, rectHeight = Typeface::LineHeight, rectEndY = y + rectHeight;
 
     bool inArea = false; // No input checking if we have no input
     bool isPressed = false;
@@ -715,7 +734,7 @@ bool Imgui::Button(const std::string &text, const ButtonStyle &style) {
     screen.FillRect(x, y, rectWidth, rectHeight, stroke, fill);
 
     // Draw button text
-    int xStart = x + Typeface::VPad;
+    int xStart = x + xpadding;
     int yStart = y + Typeface::VPad;
     int xOffset = 0;
     for (uint8_t ch : text) {

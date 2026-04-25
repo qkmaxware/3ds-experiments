@@ -228,6 +228,7 @@ In text editor:
 | L/R + X | Exit to file browser (discards changes) |
 | Y | Switch between qwerty keypad and symbolic keypad |
 | L/R + Y | Save edits from buffer to file |
+| Select | Open/Close toolshelf (extra more powerful tools) |
 | Start | Exit application (discards changes) |
 
 

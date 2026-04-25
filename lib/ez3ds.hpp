@@ -354,6 +354,8 @@ private:
 public:
     int WidthPixels();
     int WidthCharacters();
+    int AvailableWidthPixels();
+    int AvailableWidthCharacters();
 
     int HeightPixels();
     int HeightLines();
@@ -367,6 +369,7 @@ public:
     void BeginRow();
     void EndRow();
     void NextLine();
+    void CenterY();
 
     // Display items
     struct LabelStyle {
@@ -381,6 +384,11 @@ public:
     void IndentCharacters(int characters);
     void IndentPixels(int px);
     
+    enum class ButtonFit {
+        Inline,
+        Block,
+    };
+
     struct ButtonStyle {
         Colour NormalFontColour;
         Colour NormalBorderColour;
@@ -390,9 +398,12 @@ public:
         Colour HoverBorderColour;
         Colour HoverBackgroundColour;
 
-        constexpr ButtonStyle(const Colour &normalFont, const Colour &normalBorder, const Colour &normalBg, const Colour &hoverFont, const Colour &hoverBorder, const Colour &hoverBg): 
+        ButtonFit Fit;
+
+        constexpr ButtonStyle(const Colour &normalFont, const Colour &normalBorder, const Colour &normalBg, const Colour &hoverFont, const Colour &hoverBorder, const Colour &hoverBg, const ButtonFit &fit): 
             NormalFontColour(normalFont), NormalBorderColour(normalBorder), NormalBackgroundColour(normalBg),
-            HoverFontColour(hoverFont), HoverBorderColour(hoverBorder), HoverBackgroundColour(hoverBg)
+            HoverFontColour(hoverFont), HoverBorderColour(hoverBorder), HoverBackgroundColour(hoverBg),
+            Fit(fit)
         { }
     };
     static const ButtonStyle DefaultButtonStyle;
