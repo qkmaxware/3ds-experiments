@@ -361,6 +361,37 @@ private:
         }
     }
 
+    bool TryConvertIndexToPosition(size_t docIndex, Position &position) {
+        // Ensure line cache is valid
+        if (!line_cache_valid) {
+            RebuildLineCache();
+        }
+
+        // Find what line this index falls on
+        size_t line = 0;
+        for (size_t i = 0; i < line_starts.size(); ++i) {
+            if (line_starts[i] <= docIndex) {
+                line = i;  // Track the index
+            } else {
+                break;
+            }
+        }
+
+        // Find where on the line the index falls
+        if (line >= line_starts.size())
+            return false;
+
+        size_t col = docIndex - line_starts[line];
+        size_t line_len = GetLineLength(line);
+        if (col > line_len) {
+            return false;
+        }
+
+        position.line = line;
+        position.column = col;
+        return true;
+    }
+
 public:
     TextViewport(Document& doc) : document(doc), cursor(0, 0), selection_start(0, 0), selection_end(0, 0) {}
 
@@ -461,35 +492,33 @@ public:
     /// @brief Goto a given spot in the text
     /// @param docIndex index in the document
     void GotoIndex(size_t docIndex) {
-        // Ensure line cache is valid
-        if (!line_cache_valid) {
-            RebuildLineCache();
-        }
-
-        // Find what line this index falls on
-        size_t line = 0;
-        for (size_t i = 0; i < line_starts.size(); ++i) {
-            if (line_starts[i] <= docIndex) {
-                line = i;  // Track the index
-            } else {
-                break;
-            }
-        }
-
-        // Find where on the line the index falls
-        if (line >= line_starts.size())
-            return;
-
-        size_t col = docIndex - line_starts[line];
-        size_t line_len = GetLineLength(line);
-        if (col > line_len) {
+        // Get cursor position
+        Position pos;
+        if (!TryConvertIndexToPosition(docIndex, pos)) {
             return;
         }
 
         // Valid index, jump
-        cursor.line = line;
-        cursor.column = col;
+        cursor = pos;
         selection_start = selection_end = cursor;
+        EnsureCursorVisible();
+    }
+
+    void SetSelection(size_t from, size_t to) {
+        // Get cursor positions
+        Position fromp;
+        Position top;
+        if (!TryConvertIndexToPosition(from, fromp)) {
+            return;
+        }
+        if (!TryConvertIndexToPosition(to, top)) {
+            return;
+        }
+
+        // Valid index, jump
+        selection_start = fromp;
+        selection_end = top;
+        cursor = top;
         EnsureCursorVisible();
     }
 
@@ -681,8 +710,19 @@ public:
     }
 
     ToolExecution loop(Screen& screen, TextViewport &viewport, Document &doc, Input &input) {
+        bool at_end = search_offset >= doc_length;
+        if (at_end)
+            return ToolExecution::Break;
+
         Imgui im(screen, &input);
-        im.CenterY();
+        im.CenterY(-2);
+
+        im.BeginRow();
+        im.IndentCharacters(2);
+        im.Label("Find: ", Imgui::DefaultLabelStyle);
+        im.Label(search_term, Imgui::DefaultLabelStyle);
+        im.EndRow();
+        im.NextLine();
         
         if (im.Button("(A) Next Occurence", Imgui::DefaultButtonStyle) || input.JustPressed(KeyCodes::A)) {
             size_t found_loc = doc.FindNext(search_offset, search_term);
@@ -692,10 +732,78 @@ public:
 
         im.NextLine();
 
-        bool closed = im.Button("(B) Exit", Imgui::DefaultButtonStyle) || input.JustPressed(KeyCodes::B);
+        bool closed = im.Button("(B) Exit", Imgui::DefaultButtonStyle) || input.JustPressed(KeyCodes::B);   
+        return closed || at_end ? ToolExecution::Break : ToolExecution::Continue;
+    }
+};
 
+class ReplaceTool: public IEditorTool {
+private:
+    const std::string tool_name = "Replace";
+    std::string search_term;
+    std::string replacement_term;
+    size_t search_offset;
+    size_t doc_length;
+
+public:
+    ReplaceTool(): search_term(), replacement_term(), search_offset(0) {}
+
+    const std::string& name() override {
+        return tool_name;
+    };
+
+    void init(TextViewport &viewport, Document &doc, Input &input) override {
+        search_offset = 0;
+        doc_length = doc.GetLength();
+
+        search_term = input.Prompt("Where Is?");
+        replacement_term = input.Prompt("Replace With?");
+        size_t found_loc = doc.FindNext(search_offset, search_term);
+        viewport.SetSelection(found_loc, found_loc + search_term.size());
+        search_offset = found_loc + 1;
+    }
+
+    ToolExecution loop(Screen& screen, TextViewport &viewport, Document &doc, Input &input) {
         bool at_end = search_offset >= doc_length;
+        if (at_end)
+            return ToolExecution::Break;
 
+        Imgui im(screen, &input);
+        im.CenterY(-3);
+
+        im.BeginRow();
+        im.IndentCharacters(2);
+        im.Label("Find: ", Imgui::DefaultLabelStyle);
+        im.Label(search_term, Imgui::DefaultLabelStyle);
+        im.EndRow();
+        im.BeginRow();
+        im.IndentCharacters(2);
+        im.Label("Replace With: ", Imgui::DefaultLabelStyle);
+        im.Label(replacement_term, Imgui::DefaultLabelStyle);
+        im.EndRow();
+        im.NextLine();
+        
+        if (im.Button("(X) Replace", Imgui::DefaultButtonStyle) || input.JustPressed(KeyCodes::X)) {
+            size_t word_start = search_offset - 1;
+            viewport.InsertText(replacement_term);
+            search_offset = word_start + 1;
+
+            size_t found_loc = doc.FindNext(search_offset, search_term);
+            viewport.SetSelection(found_loc, found_loc + search_term.size());
+            search_offset = found_loc + 1;
+            return ToolExecution::Continue;
+        }
+
+        if (im.Button("(A) Next Occurence", Imgui::DefaultButtonStyle) || input.JustPressed(KeyCodes::A)) {
+            size_t found_loc = doc.FindNext(search_offset, search_term);
+            viewport.SetSelection(found_loc, found_loc + search_term.size());
+            search_offset = found_loc + 1;
+            return ToolExecution::Continue;
+        }
+
+        im.NextLine();
+
+        bool closed = im.Button("(B) Exit", Imgui::DefaultButtonStyle) || input.JustPressed(KeyCodes::B);   
         return closed || at_end ? ToolExecution::Break : ToolExecution::Continue;
     }
 };
@@ -757,6 +865,7 @@ public:
         State(EditorState::Editing) {
             // Add tools here
             tools.push_back(std::move(make_unique<FindTool>()));
+            tools.push_back(std::move(make_unique<ReplaceTool>()));
 
             tool_pages = (tools.size() + (TOOL_PAGE_SIZE - 1)) / TOOL_PAGE_SIZE;
         }

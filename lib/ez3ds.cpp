@@ -636,8 +636,8 @@ void Imgui::NextLine() {
     this->x = 0;
 }
 
-void Imgui::CenterY() {
-    this->y = (HeightLines() >> 1) * Typeface::LineHeight;
+void Imgui::CenterY(int lineOffset) {
+    this->y = (HeightLines() >> 1) * Typeface::LineHeight + lineOffset * Typeface::LineHeight;
 }
 
 const Imgui::LabelStyle Imgui::DefaultLabelStyle = Imgui::LabelStyle(Colour::White());

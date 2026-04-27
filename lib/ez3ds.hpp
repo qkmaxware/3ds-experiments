@@ -369,7 +369,7 @@ public:
     void BeginRow();
     void EndRow();
     void NextLine();
-    void CenterY();
+    void CenterY(int lineOffset = 0);
 
     // Display items
     struct LabelStyle {
