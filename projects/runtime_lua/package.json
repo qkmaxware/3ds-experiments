@@ -1,0 +1,10 @@
+{
+    "name": "runtime-lua",
+    "displayName": "LUA Interpreter",
+    "version": "1.0.0",
+    "author": "qkmaxware",
+    "description": "Run Lua scripts on your 3ds",
+    "config": {
+        "cxxFlags": "-DLUA_32BITS"
+    }
+}

@@ -40,10 +40,12 @@ APP_VERSION     := $(or $(call get_json,.version),1.0.0)
 APP_AUTHOR      := $(or $(call get_json,.author),qkmaxware)
 APP_DESCRIPTION := $(or $(call get_json,.description),My homebrew app)
 
+ADDITIONAL_CXX_FLAGS := $(or $(call get_json,.config.cxxFlags),)
+
 TARGET		:=	$(if $(APP_SHORTNAME),$(APP_SHORTNAME),$(notdir $(CURDIR)))
 BIN      	:=  bin
 BUILD		:=	obj
-SOURCES		:=	src lib
+SOURCES		:=	src lib third-party
 DATA		:=	data
 INCLUDES	:=	inc
 GRAPHICS	:=	gfx
@@ -63,7 +65,7 @@ CFLAGS	:=	-g -Wall -O2 -mword-relocations \
 
 CFLAGS	+=	$(INCLUDE) -D__3DS__
 
-CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11 -DAPP_VERSION=\"$(APP_VERSION)\"
+CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11 -DAPP_VERSION=\"$(APP_VERSION)\" $(ADDITIONAL_CXX_FLAGS)
 
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)

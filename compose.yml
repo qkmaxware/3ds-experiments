@@ -10,6 +10,7 @@ services:
             - explorer
             - runtime-bf
             - runtime-lisp
+            - runtime-lua
             - micro
 
     # The following are all services that build specific project executables
@@ -56,10 +57,19 @@ services:
         - ./bin:/project/bin
         - ./lib:/project/lib
         - ./projects/runtime-tinylisp:/project/src  
+    runtime-lua: 
+        build: 
+            context: ./environment
+            dockerfile: ./Dockerfile.lua
+        volumes:
+        - ./bin:/project/bin
+        - ./lib:/project/lib
+        - ./projects/runtime_lua:/project/src  
 
     micro: 
         build: 
             context: ./environment
+            dockerfile: ./Dockerfile
         volumes:
         - ./bin:/project/bin
         - ./lib:/project/lib
